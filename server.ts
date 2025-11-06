@@ -1,0 +1,178 @@
+import express, { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// ES modules compatibility
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from root directory BEFORE importing any routes
+dotenv.config({ path: join(__dirname, '../.env.local') });
+
+// Import routes AFTER loading environment variables
+import authRoutes from './routes/auth.routes.js';
+import brandsRoutes from './routes/brands.routes.js';
+import containerTypesRoutes from './routes/container-types.routes.js';
+import refundsRoutes from './routes/refunds.routes.js';
+import transactionsRoutes from './routes/transactions.routes.js';
+import blendTemplatesRoutes from './routes/blend-templates.routes.js';
+import inventoryRoutes from './routes/inventory.routes.js';
+import suppliersRoutes from './routes/suppliers.routes.js';
+import bundlesRoutes from './routes/bundles.routes.js';
+
+// Debug environment variables
+console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
+console.log('Environment file path:', join(__dirname, '../.env.local'));
+
+// Type for environment variables
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      BACKEND_PORT?: string;
+      MONGODB_URI?: string;
+      FRONTEND_URL?: string;
+      readonly NODE_ENV: 'development' | 'production' | 'test';
+      JWT_SECRET?: string;
+      REFRESH_TOKEN_SECRET?: string;
+    }
+  }
+}
+
+const app: Express = express();
+const PORT: number = parseInt(process.env.BACKEND_PORT || '5000', 10);
+
+// Database connection
+const mongoUri: string = process.env.MONGODB_URI || 'mongodb://localhost:27017/l2l-backend';
+
+mongoose.connect(mongoUri)
+  .then(() => console.log('✅ MongoDB connected successfully'))
+  .catch((err: Error) => console.error('❌ MongoDB connection error:', err));
+
+// Middleware
+app.use(helmet()); // Security headers
+app.use(compression()); // Compress responses
+
+// CORS configuration
+interface CorsCallback {
+  (err: Error | null, allow?: boolean): void;
+}
+
+const corsOptions: cors.CorsOptions = {
+  origin: function (origin: string | undefined, callback: CorsCallback) {
+    const allowedOrigins: string[] = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      process.env.FRONTEND_URL,
+    ].filter((origin): origin is string => Boolean(origin));
+    
+    // Allow requests with no origin (like mobile apps or Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+  optionsSuccessStatus: 200,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Authorization'],
+};
+
+app.use(cors(corsOptions));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+});
+
+app.use('/api/', limiter);
+
+// Health check endpoint
+app.get('/health', (_req: Request, res: Response): void => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    service: 'L2L Backend API',
+    version: '1.0.0'
+  });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/brands', brandsRoutes);
+app.use('/api/container-types', containerTypesRoutes);
+app.use('/api/refunds', refundsRoutes);
+app.use('/api/transactions', transactionsRoutes);
+app.use('/api/blend-templates', blendTemplatesRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/suppliers', suppliersRoutes);
+app.use('/api/bundles', bundlesRoutes);
+
+// 404 handler
+app.use((_req: Request, res: Response): void => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Custom error interface
+interface CustomError extends Error {
+  status?: number;
+  errors?: any;
+}
+
+// Global error handler
+const errorHandler: ErrorRequestHandler = (
+  err: CustomError, 
+  _req: Request, 
+  res: Response, 
+  _next: NextFunction
+): void => {
+  console.error(err.stack);
+  
+  // Handle specific errors
+  if (err.name === 'ValidationError') {
+    res.status(400).json({ 
+      error: 'Validation Error', 
+      details: err.errors 
+    });
+    return;
+  }
+  
+  if (err.name === 'UnauthorizedError') {
+    res.status(401).json({ 
+      error: 'Unauthorized' 
+    });
+    return;
+  }
+  
+  // Default error
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+};
+
+app.use(errorHandler);
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+export default app;

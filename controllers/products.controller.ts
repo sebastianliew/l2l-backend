@@ -98,6 +98,12 @@ export const getProducts = async (
     // Build query
     const query: ProductQuery = {};
     
+    // Include or exclude soft-deleted products based on includeInactive parameter
+    const includeInactive = req.query.includeInactive === 'true';
+    if (!includeInactive) {
+      query.isDeleted = { $ne: true };
+    }
+    
     // Text search
     if (search) {
       query.$or = [
@@ -218,6 +224,7 @@ export const createProduct = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log('🔍 Backend received data:', req.body);
     const {
       name,
       sku,
@@ -235,6 +242,8 @@ export const createProduct = async (
       expiryDate,
       containerCapacity = 1
     } = req.body;
+    
+    console.log('📊 Stock values extracted:', { quantity, currentStock, reorderPoint });
 
     // Validate references exist
     const [categoryExists, unitExists] = await Promise.all([
@@ -268,17 +277,10 @@ export const createProduct = async (
     //   }
     // }
 
-    // Check for duplicate SKU
-    const existingProduct = await Product.findOne({ sku });
-    if (existingProduct) {
-      res.status(400).json({ error: 'Product with this SKU already exists' });
-      return;
-    }
-
-    // Create product
+    // Create product (SKU will be auto-generated if not provided)
     const product = new Product({
       name,
-      sku,
+      sku, // Can be undefined, will be auto-generated
       description,
       category,
       brand,
@@ -297,6 +299,11 @@ export const createProduct = async (
       expiryDate,
       containerCapacity
     });
+
+    // Auto-generate SKU if not provided using the model method
+    if (!product.sku) {
+      await product.generateSKU();
+    }
 
     await product.save();
 
@@ -459,16 +466,27 @@ export const deleteProduct = async (
       return;
     }
 
-    // Check if product is used in any active bundles, blends, etc.
-    // This would require checking multiple collections
-    // For now, we'll do a soft delete by marking as inactive
+    // Check if already deleted
+    if (product.isDeleted) {
+      res.status(400).json({ error: 'Product is already deleted' });
+      return;
+    }
 
+    // Perform proper soft delete
+    product.isDeleted = true;
     product.isActive = false;
     product.status = 'inactive';
+    product.deletedAt = new Date();
+    
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user) {
+      product.deletedBy = authReq.user._id.toString();
+    }
+    product.deleteReason = 'User requested deletion';
+    
     await product.save();
 
     // Log admin activity
-    const authReq = req as AuthenticatedRequest;
     if (authReq.user) {
       // await AdminActivityLog.create({
       //   userId: authReq.user._id,
@@ -478,11 +496,11 @@ export const deleteProduct = async (
       //   resourceType: 'Product',
       //   resourceId: product._id,
       //   resourceName: product.name,
-      //   details: { sku: product.sku }
+      //   details: { sku: product.sku, softDelete: true }
       // });
     }
 
-    res.json({ message: 'Product deactivated successfully' });
+    res.json({ message: 'Product deleted successfully' });
   } catch (error) {
     console.error('Error deleting product:', error);
     res.status(500).json({ error: 'Failed to delete product' });
@@ -553,5 +571,81 @@ export const getProductTemplates = async (
   } catch (error) {
     console.error('Error fetching product templates:', error);
     res.status(500).json({ error: 'Failed to fetch product templates' });
+  }
+};
+
+export const bulkDeleteProducts = async (
+  req: Request<{}, {}, { productIds: string[] }>,
+  res: Response
+): Promise<void> => {
+  try {
+    const { productIds } = req.body;
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      res.status(400).json({ error: 'Product IDs array is required' });
+      return;
+    }
+
+    // Validate all product IDs are valid ObjectIds
+    const invalidIds = productIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      res.status(400).json({ 
+        error: 'Invalid product IDs provided',
+        invalidIds 
+      });
+      return;
+    }
+
+    // Find existing products that are not already deleted
+    const existingProducts = await Product.find({ 
+      _id: { $in: productIds },
+      isDeleted: { $ne: true }
+    }).select('_id name sku isActive');
+
+    if (existingProducts.length === 0) {
+      res.status(404).json({ error: 'No products found or all products are already deleted' });
+      return;
+    }
+
+    const authReq = req as AuthenticatedRequest;
+    
+    // Perform proper soft delete
+    const result = await Product.updateMany(
+      { 
+        _id: { $in: existingProducts.map(p => p._id) },
+        isDeleted: { $ne: true }
+      },
+      { 
+        $set: { 
+          isDeleted: true,
+          isActive: false, 
+          status: 'inactive',
+          deletedAt: new Date(),
+          deletedBy: authReq.user?._id?.toString() || 'system',
+          deleteReason: 'Bulk deletion requested by user',
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    // Log admin activity for bulk deletion
+    if (authReq.user) {
+      console.log(`Bulk delete by ${authReq.user.email}: ${result.modifiedCount} products deleted`);
+    }
+
+    res.json({
+      message: `Successfully deleted ${result.modifiedCount} products`,
+      deactivatedCount: result.modifiedCount,
+      requestedCount: productIds.length,
+      notFoundCount: productIds.length - existingProducts.length,
+      products: existingProducts.map(p => ({
+        id: p._id,
+        name: p.name,
+        sku: p.sku
+      }))
+    });
+  } catch (error) {
+    console.error('Error bulk deleting products:', error);
+    res.status(500).json({ error: 'Failed to bulk delete products' });
   }
 };

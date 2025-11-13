@@ -41,11 +41,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  console.log('🔵 POST /api/brands endpoint hit');
   try {
     const data = await request.json();
+    console.log('🔵 Received brand data:', data);
     
     // Basic validation
     if (!data.name) {
+      console.error('🔴 Brand name is missing');
       return NextResponse.json(
         { error: 'Brand name is required' },
         { status: 400 }
@@ -53,18 +56,25 @@ export async function POST(request: Request) {
     }
     
     // Check if brand with same name exists
+    console.log('🔵 Checking if brand exists with name:', data.name);
     const exists = await BrandService.brandExistsByName(data.name);
+    console.log('🔵 Brand exists?', exists);
+    
     if (exists) {
+      console.error('🔴 Brand already exists');
       return NextResponse.json(
         { error: 'A brand with this name already exists' },
         { status: 409 }
       );
     }
     
+    console.log('🔵 Creating brand...');
     const brand = await BrandService.createBrand(data);
+    console.log('🟢 Brand created successfully:', brand);
+    
     return NextResponse.json(brand, { status: 201 });
   } catch (error) {
-    console.error('Error creating brand:', error);
+    console.error('🔴 Error creating brand:', error);
     return NextResponse.json(
       { error: 'Failed to create brand' },
       { status: 500 }

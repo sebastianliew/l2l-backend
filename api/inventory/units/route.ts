@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { UnitOfMeasurement } from '@/backend/models/UnitOfMeasurement';
+import connectDB from '../../../lib/mongodb.js';
+import { UnitOfMeasurement } from '../../../models/UnitOfMeasurement.js';
 import { Document } from 'mongoose';
 
 const transformUnit = (unit: Document) => {

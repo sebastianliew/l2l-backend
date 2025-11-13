@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '../../../lib/mongodb.js';
 import { Product } from '../../../models/Product.js';
 import { AdminActivityLog } from '../../../models/AdminActivityLog.js';
+import mongoose from 'mongoose';
 
 interface ProductDocument {
   _id: string;
@@ -106,14 +107,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(error, { status: 400 });
     }
 
-    // Transform data
+    // Helper function to convert string to ObjectId if valid
+    const toObjectId = (id: any) => {
+      if (!id) return null;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        return new mongoose.Types.ObjectId(id);
+      }
+      throw new Error(`Invalid ObjectId: ${id}`);
+    };
+
+    // Transform data with proper ObjectId conversion
     const transformedData = {
       name: String(data.name).substring(0, 200),
       description: String(data.description || '').substring(0, 1000),
-      category: String(data.category),
-      brand: data.brand ? String(data.brand) : null,
-      unitOfMeasurement: String(data.unitOfMeasurement),
-      containerType: data.containerType ? String(data.containerType) : null,
+      category: toObjectId(data.category),
+      brand: data.brand ? toObjectId(data.brand) : null,
+      unitOfMeasurement: toObjectId(data.unitOfMeasurement),
+      containerType: data.containerType ? toObjectId(data.containerType) : null,
       quantity: Number(data.quantity) || 0,
       reorderPoint: Number(data.reorderPoint) || 10,
       currentStock: Number(data.currentStock) || 0,
@@ -143,6 +153,17 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Handle specific MongoDB errors
     if (error instanceof Error) {
+      // Handle ObjectId conversion errors
+      if (error.message.includes('Invalid ObjectId')) {
+        const errorDetails = {
+          error: 'Invalid Reference ID',
+          message: 'One or more reference IDs (category, brand, unit) are invalid',
+          details: error.message,
+          receivedData: data
+        };
+        return NextResponse.json(errorDetails, { status: 400 });
+      }
+      
       // Handle duplicate key error (likely SKU)
       if (error.message.includes('duplicate key error') || error.message.includes('E11000')) {
         const errorDetails = {
@@ -155,7 +176,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Handle validation errors
-      if (error.message.includes('validation')) {
+      if (error.message.includes('validation') || error.message.includes('required')) {
         const errorDetails = {
           error: 'Validation Error',
           message: error.message,

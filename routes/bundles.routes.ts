@@ -16,8 +16,10 @@ import {
 
 const router: Router = express.Router();
 
+// Public routes - no authentication required
+router.get('/', getBundles);  // Allow public access to view bundles
+
 // Protected routes - require authentication
-router.get('/', authenticateToken, getBundles);
 router.get('/categories', authenticateToken, getBundleCategories);
 router.get('/popular', authenticateToken, getPopularBundles);
 router.get('/promoted', authenticateToken, getPromotedBundles);

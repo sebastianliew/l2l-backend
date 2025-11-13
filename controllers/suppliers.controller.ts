@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Supplier, ISupplier } from '../models/Supplier.js';
+import { Supplier } from '../models/Supplier.js';
 import { Product } from '../models/Product.js';
 import { IUser } from '../models/User.js';
 
@@ -101,7 +101,7 @@ export const getSuppliers = async (req: Request<{}, {}, {}, SupplierQueryParams>
     // Transform suppliers to include id field and remove _id
     const transformedSuppliers = suppliers.map(supplier => ({
       ...supplier,
-      id: supplier._id.toString(),
+      id: (supplier._id as string).toString(),
       _id: undefined
     }));
 
@@ -124,7 +124,7 @@ export const getSupplierById = async (req: Request<{ id: string }>, res: Respons
     // Transform supplier to include id field and remove _id
     const transformedSupplier = {
       ...supplier,
-      id: supplier._id.toString(),
+      id: (supplier._id as string).toString(),
       _id: undefined
     };
     

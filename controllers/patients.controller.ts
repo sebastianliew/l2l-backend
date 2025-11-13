@@ -35,7 +35,7 @@ export class PatientsController {
   }
 
   // Get patient by ID
-  async getPatientById(req: Request, res: Response) {
+  async getPatientById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const patient = await this.patientService.getPatientById(id);
@@ -44,14 +44,15 @@ export class PatientsController {
     } catch (error) {
       console.error('Error fetching patient:', error);
       if (error instanceof Error && error.message === 'Patient not found') {
-        return res.status(404).json({ error: error.message });
+        res.status(404).json({ error: error.message });
+        return;
       }
-      return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to fetch patient' });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to fetch patient' });
     }
   }
 
   // Create new patient
-  async createPatient(req: Request, res: Response) {
+  async createPatient(req: Request, res: Response): Promise<void> {
     try {
       const patientData: PatientFormData = req.body;
       const patient = await this.patientService.createPatient(patientData);
@@ -60,14 +61,15 @@ export class PatientsController {
     } catch (error) {
       console.error('Error creating patient:', error);
       if (error instanceof Error && error.message.includes('already exists')) {
-        return res.status(400).json({ error: error.message });
+        res.status(400).json({ error: error.message });
+        return;
       }
-      return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to create patient' });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to create patient' });
     }
   }
 
   // Update patient
-  async updatePatient(req: Request, res: Response) {
+  async updatePatient(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const updateData: Partial<PatientFormData> = req.body;
@@ -79,18 +81,20 @@ export class PatientsController {
       console.error('Error updating patient:', error);
       if (error instanceof Error) {
         if (error.message === 'Patient not found') {
-          return res.status(404).json({ error: error.message });
+          res.status(404).json({ error: error.message });
+          return;
         }
         if (error.message.includes('already exists')) {
-          return res.status(400).json({ error: error.message });
+          res.status(400).json({ error: error.message });
+          return;
         }
       }
-      return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update patient' });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update patient' });
     }
   }
 
   // Delete patient
-  async deletePatient(req: Request, res: Response) {
+  async deletePatient(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       
@@ -100,7 +104,8 @@ export class PatientsController {
     } catch (error) {
       console.error('Error deleting patient:', error);
       if (error instanceof Error && error.message === 'Patient not found') {
-        return res.status(404).json({ error: error.message });
+        res.status(404).json({ error: error.message });
+        return;
       }
       res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to delete patient' });
     }
@@ -121,7 +126,7 @@ export class PatientsController {
   }
 
   // Bulk delete patients
-  async bulkDeletePatients(req: Request, res: Response) {
+  async bulkDeletePatients(req: Request, res: Response): Promise<void> {
     try {
       const { patientIds } = req.body;
       
@@ -131,9 +136,10 @@ export class PatientsController {
     } catch (error) {
       console.error('Error bulk deleting patients:', error);
       if (error instanceof Error && error.message.includes('required')) {
-        return res.status(400).json({ error: error.message });
+        res.status(400).json({ error: error.message });
+        return;
       }
-      return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to delete patients' });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to delete patients' });
     }
   }
 }

@@ -25,6 +25,8 @@ import blendTemplatesRoutes from './routes/blend-templates.routes.js';
 import inventoryRoutes from './routes/inventory.routes.js';
 import suppliersRoutes from './routes/suppliers.routes.js';
 import bundlesRoutes from './routes/bundles.routes.js';
+import appointmentsRoutes from './routes/appointments.routes.js';
+import reportsRoutes from './routes/reports.routes.js';
 
 // Debug environment variables
 console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
@@ -45,7 +47,7 @@ declare global {
 }
 
 const app: Express = express();
-const PORT: number = parseInt(process.env.BACKEND_PORT || '5000', 10);
+const PORT: number = parseInt(process.env.BACKEND_PORT || '5001', 10);
 
 // Database connection
 const mongoUri: string = process.env.MONGODB_URI || 'mongodb://localhost:27017/l2l-backend';
@@ -123,6 +125,8 @@ app.use('/api/blend-templates', blendTemplatesRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/bundles', bundlesRoutes);
+app.use('/api', appointmentsRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response): void => {

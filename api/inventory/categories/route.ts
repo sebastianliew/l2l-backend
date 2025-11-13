@@ -43,7 +43,18 @@ export async function POST(request: Request) {
     const category = new Category(data);
     await category.save();
 
-    return NextResponse.json(category, { status: 201 });
+    // Transform the response to match frontend expectations
+    const transformedCategory = {
+      id: category._id.toString(),
+      name: category.name,
+      description: category.description,
+      level: category.level,
+      isActive: category.status === 'active',
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt
+    };
+
+    return NextResponse.json(transformedCategory, { status: 201 });
   } catch (error) {
     console.error('Error creating category:', error);
     return NextResponse.json(

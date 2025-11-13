@@ -21,8 +21,16 @@ import {
   updateProduct,
   deleteProduct,
   addStock,
-  getProductTemplates
+  getProductTemplates,
+  bulkDeleteProducts
 } from '../controllers/products.controller';
+import {
+  getRestockSuggestions,
+  restockProduct,
+  bulkRestockProducts,
+  getRestockHistory,
+  getRestockBatches
+} from '../controllers/restock.controller';
 
 const router: Router = express.Router();
 
@@ -46,7 +54,15 @@ router.get('/products/:id', authenticateToken, getProductById);
 router.post('/products', authenticateToken, createProduct);
 router.put('/products/:id', authenticateToken, updateProduct);
 router.delete('/products/:id', authenticateToken, deleteProduct);
+router.post('/products/bulk-delete', authenticateToken, bulkDeleteProducts);
 router.post('/products/add-stock', authenticateToken, addStock);
 router.get('/products/templates', authenticateToken, getProductTemplates);
+
+// Restock routes - require authentication for inventory management security
+router.get('/restock/suggestions', authenticateToken, getRestockSuggestions);
+router.post('/restock', authenticateToken, restockProduct);
+router.get('/restock', authenticateToken, getRestockHistory);
+router.post('/restock/bulk', authenticateToken, bulkRestockProducts);
+router.get('/restock/batches', authenticateToken, getRestockBatches);
 
 export default router;

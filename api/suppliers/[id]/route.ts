@@ -57,7 +57,7 @@ export async function PUT(
 
   try {
     // Check Super Admin access for supplier management
-    const { user, error } = await requireSuperAdminAccess(request, { 
+    const { user, error } = await requireSuperAdminAccess({ 
       feature: 'supplier_management' 
     });
     
@@ -120,7 +120,7 @@ export async function DELETE(
 
   try {
     // Check Super Admin access for supplier deletion
-    const { user, error } = await requireSuperAdminAccess(request, { 
+    const { user, error } = await requireSuperAdminAccess({ 
       feature: 'supplier_management' 
     });
     

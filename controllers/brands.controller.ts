@@ -89,7 +89,7 @@ export const getBrands = async (req: Request<{}, {}, {}, BrandQueryParams>, res:
     const brandsWithCount = await Promise.all(
       brands.map(async (brand) => {
         const productCount = await Product.countDocuments({ 
-          brand: brand._id,
+          brand: brand._id as string,
           isActive: true 
         });
         return { ...brand, productCount };
@@ -122,7 +122,7 @@ export const getBrandById = async (req: Request<{ id: string }>, res: Response):
     
     // Get product count
     const productCount = await Product.countDocuments({ 
-      brand: brand._id,
+      brand: brand._id as string,
       isActive: true 
     });
     

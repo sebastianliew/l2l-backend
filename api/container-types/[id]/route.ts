@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import { ContainerType } from '@/models/ContainerType';
+import connectDB from '../../../lib/mongodb.js';
+import { ContainerType } from '../../../models/ContainerType.js';
 import { Document } from 'mongoose';
 
 interface ContainerTypeDoc extends Document {

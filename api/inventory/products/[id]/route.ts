@@ -57,7 +57,7 @@ export async function PUT(
 ) {
   try {
     // Get authenticated user
-    const authResult = await getAuthUser(request);
+    const authResult = await getAuthUser();
     if (!authResult.success || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -78,7 +78,23 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const data = await request.json();
+    const data = await request.json() as {
+      category?: { id?: string } | string;
+      supplier?: { id?: string } | string;
+      brand?: { id?: string } | string;
+      unitOfMeasurement?: { id?: string } | string;
+      containerType?: { id?: string } | string;
+      quantity?: number;
+      costPrice?: number;
+      sellingPrice?: number;
+      reorderPoint?: number;
+      currentStock?: number;
+      totalQuantity?: number;
+      hasBundle?: boolean | string | null;
+      isActive?: boolean | string | null;
+      autoReorderEnabled?: boolean | string | null;
+      [key: string]: unknown;
+    };
     await connectDB();
     
     // Get the existing product to compare values
@@ -101,11 +117,11 @@ export async function PUT(
     // Transform the data to ensure proper types and object references
     const transformedData = {
       ...data,
-      category: data.category?.id || data.category,
-      supplierId: data.supplier?.id || data.supplier, // Fix: use supplierId instead of supplier
-      brand: data.brand?.id || data.brand,
-      unitOfMeasurement: data.unitOfMeasurement?.id || data.unitOfMeasurement,
-      containerType: data.containerType?.id || data.containerType,
+      category: typeof data.category === 'object' && data.category?.id ? data.category.id : data.category,
+      supplierId: typeof data.supplier === 'object' && data.supplier?.id ? data.supplier.id : data.supplier,
+      brand: typeof data.brand === 'object' && data.brand?.id ? data.brand.id : data.brand,
+      unitOfMeasurement: typeof data.unitOfMeasurement === 'object' && data.unitOfMeasurement?.id ? data.unitOfMeasurement.id : data.unitOfMeasurement,
+      containerType: typeof data.containerType === 'object' && data.containerType?.id ? data.containerType.id : data.containerType,
       quantity: Number(data.quantity) || 0,
       costPrice: Number(data.costPrice) || 0,
       sellingPrice: Number(data.sellingPrice) || 0,
@@ -220,11 +236,13 @@ export async function PUT(
       const fieldsToTrack = ['name', 'costPrice', 'sellingPrice', 'currentStock', 'reorderPoint', 'isActive'];
       
       for (const field of fieldsToTrack) {
-        if (transformedData[field] !== undefined && data[field] !== undefined) {
+        const transformedValue = (transformedData as Record<string, unknown>)[field];
+        const dataValue = (data as Record<string, unknown>)[field];
+        if (transformedValue !== undefined && dataValue !== undefined) {
           changes.push({
             field,
             previousValue: 'previous_value', // In real implementation, you'd get the original product first
-            newValue: transformedData[field]
+            newValue: transformedValue
           });
         }
       }
@@ -258,15 +276,31 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    // Check Super Admin access for product deletion
-    const { user, error } = await requireSuperAdminAccess(request, { 
-      feature: 'product_management' 
-    });
-    
-    
-    if (error) {
-      return error;
+    // Get authenticated user
+    const authResult = await getAuthUser();
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const user = authResult.user;
+    const permissionService = PermissionService.getInstance();
+
+    // Check if user has permission to delete products
+    // Allow both super_admin and admin roles, or users with specific delete permission
+    const canDeleteProducts = 
+      user.role === 'super_admin' || 
+      user.role === 'admin' ||
+      permissionService.hasPermission(user, 'inventory', 'canAddProducts'); // Using canAddProducts as proxy for product management
+
+    if (!canDeleteProducts) {
+      return NextResponse.json({
+        error: 'Access denied: Insufficient permissions to delete products',
+        code: 'INSUFFICIENT_PERMISSIONS',
+        requiredRole: 'admin or super_admin'
+      }, { status: 403 });
     }
 
     const { id } = await params;
@@ -293,6 +327,7 @@ export async function DELETE(
 
     // Perform soft delete
     product.isDeleted = true;
+    product.isActive = false; // Also set isActive to false
     product.deletedAt = new Date();
     product.deletedBy = user?._id || 'system';
     product.deleteReason = 'User requested deletion';
@@ -300,8 +335,8 @@ export async function DELETE(
     await product.save();
 
 
-    // Log Super Admin action
-    if (user) {
+    // Log deletion action if user is super admin
+    if (user && user.role === 'super_admin') {
       await logSuperAdminAction(user, 'product_management', 'delete', {
         productId: id,
         productName: product.name

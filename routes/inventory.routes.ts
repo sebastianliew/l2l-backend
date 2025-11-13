@@ -49,7 +49,7 @@ router.put('/categories/:id', authenticateToken, updateCategory);
 router.delete('/categories/:id', authenticateToken, deleteCategory);
 
 // Products routes - require authentication for medical inventory security
-router.get('/products', authenticateToken, getProducts);
+router.get('/products', getProducts); // Public access for viewing products
 router.get('/products/:id', authenticateToken, getProductById);
 router.post('/products', authenticateToken, createProduct);
 router.put('/products/:id', authenticateToken, updateProduct);

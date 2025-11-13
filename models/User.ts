@@ -1,7 +1,8 @@
-// Prevent client-side import
-if (typeof window !== 'undefined') {
-  throw new Error('User model cannot be imported on the client side');
-}
+// Prevent client-side import (backend version)
+// This check is not needed in pure backend environment
+// if (typeof window !== 'undefined' && typeof process === 'undefined') {
+//   throw new Error('User model cannot be imported on the client side');
+// }
 
 import mongoose, { Schema, Document } from 'mongoose';
 
@@ -57,7 +58,7 @@ const userSchema = new Schema<IUser>({
   },
   password: {
     type: String,
-    required: function() {
+    required: function(this: IUser): boolean {
       return this.authProvider === 'credentials' || !this.authProvider;
     },
     select: false // Don't include password in queries by default

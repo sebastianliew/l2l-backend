@@ -26,6 +26,7 @@ import inventoryRoutes from './routes/inventory.routes.js';
 import suppliersRoutes from './routes/suppliers.routes.js';
 import bundlesRoutes from './routes/bundles.routes.js';
 import appointmentsRoutes from './routes/appointments.routes.js';
+import patientsRoutes from './routes/patients.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
 
 // Debug environment variables
@@ -52,7 +53,16 @@ const PORT: number = parseInt(process.env.BACKEND_PORT || '5001', 10);
 // Database connection
 const mongoUri: string = process.env.MONGODB_URI || 'mongodb://localhost:27017/l2l-backend';
 
-mongoose.connect(mongoUri)
+// MongoDB connection options
+const mongoOptions = {
+  serverSelectionTimeoutMS: 30000, // 30 seconds
+  socketTimeoutMS: 45000, // 45 seconds
+  maxPoolSize: 10,
+  minPoolSize: 5,
+  maxIdleTimeMS: 30000,
+};
+
+mongoose.connect(mongoUri, mongoOptions)
   .then(() => console.log('✅ MongoDB connected successfully'))
   .catch((err: Error) => console.error('❌ MongoDB connection error:', err));
 
@@ -96,10 +106,10 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting
+// Rate limiting - increased for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs (increased for dev)
   message: 'Too many requests from this IP, please try again later.',
 });
 
@@ -126,6 +136,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/bundles', bundlesRoutes);
 app.use('/api', appointmentsRoutes);
+app.use('/api/patients', patientsRoutes);
 app.use('/api/reports', reportsRoutes);
 
 // 404 handler

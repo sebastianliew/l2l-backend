@@ -190,7 +190,7 @@ const TransactionSchema = new Schema<ITransaction>({
 });
 
 // Indexes for better performance
-TransactionSchema.index({ transactionNumber: 1 });
+// Note: transactionNumber index is already created by unique: true option
 TransactionSchema.index({ customerName: 1 });
 TransactionSchema.index({ transactionDate: -1 });
 TransactionSchema.index({ status: 1 });

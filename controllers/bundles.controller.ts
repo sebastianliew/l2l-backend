@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Bundle, IBundle } from '../models/Bundle';
 import { Product } from '../models/Product';
+import { BlendTemplate } from '../models/BlendTemplate';
 import { IUser } from '../models/User';
 
 // Request interfaces
@@ -131,11 +132,10 @@ export const getBundles = async (
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
     
-    // Execute query
+    // Execute query - removed problematic createdBy populate for now
     const [bundles, total] = await Promise.all([
       Bundle.find(query)
         .populate('bundleProducts.productId', 'name sku availableStock')
-        .populate('createdBy', 'email name')
         .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
         .skip(skip)
         .limit(limitNum)
@@ -165,8 +165,6 @@ export const getBundleById = async (
   try {
     const bundle = await Bundle.findById(req.params.id)
       .populate('bundleProducts.productId', 'name sku availableStock sellingPrice')
-      .populate('createdBy', 'email name')
-      .populate('lastModifiedBy', 'email name')
       .lean();
     
     if (!bundle) {
@@ -187,28 +185,75 @@ export const createBundle = async (
 ): Promise<void> => {
   try {
     const authReq = req as AuthenticatedRequest;
+    
+    // Authentication is required - user must be logged in
     if (!authReq.user) {
-      res.status(401).json({ error: 'User not authenticated' });
+      res.status(401).json({ error: 'User authentication required' });
       return;
     }
-
+    
+    const userId = authReq.user.id;
+    
     const bundleData = req.body;
     
-    // Validate bundle products exist
+    console.log(`Creating bundle with data by user ${authReq.user.email} (${userId}):`, JSON.stringify(bundleData, null, 2));
+    
+    // Validate basic required fields
+    if (!bundleData.name || !bundleData.bundleProducts || !bundleData.bundlePrice) {
+      res.status(400).json({ error: 'Missing required fields: name, bundleProducts, or bundlePrice' });
+      return;
+    }
+    
+    // Calculate pricing and add missing required fields
+    let individualTotalPrice = 0;
+    
+    // Validate bundle products and calculate totals
     for (const bundleProduct of bundleData.bundleProducts) {
-      const product = await Product.findById(bundleProduct.productId);
-      if (!product) {
-        res.status(400).json({ error: `Product with ID ${bundleProduct.productId} not found` });
-        return;
+      console.log('Validating product:', bundleProduct.productId, 'Type:', bundleProduct.productType);
+      
+      let item = null;
+      
+      if (bundleProduct.productType === 'fixed_blend' || bundleProduct.blendTemplateId) {
+        // Check if it's a blend template
+        item = await BlendTemplate.findById(bundleProduct.productId);
+        if (!item) {
+          console.error(`Blend template not found: ${bundleProduct.productId}`);
+          res.status(400).json({ error: `Blend template with ID ${bundleProduct.productId} not found` });
+          return;
+        }
+      } else {
+        // Check if it's a regular product
+        item = await Product.findById(bundleProduct.productId);
+        if (!item) {
+          console.error(`Product not found: ${bundleProduct.productId}`);
+          res.status(400).json({ error: `Product with ID ${bundleProduct.productId} not found` });
+          return;
+        }
       }
       
       // Update product name from database
-      bundleProduct.name = product.name;
+      bundleProduct.name = item.name;
+      bundleProduct.totalPrice = bundleProduct.quantity * bundleProduct.individualPrice;
+      individualTotalPrice += bundleProduct.totalPrice;
     }
+    
+    // Calculate savings
+    const savings = Math.max(0, individualTotalPrice - bundleData.bundlePrice);
+    const savingsPercentage = individualTotalPrice > 0 
+      ? Math.round((savings / individualTotalPrice) * 100) 
+      : 0;
+    
+    // Generate SKU
+    const sku = `BDL-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     
     const bundle = new Bundle({
       ...bundleData,
-      createdBy: authReq.user.id
+      sku,
+      individualTotalPrice,
+      savings,
+      savingsPercentage,
+      currency: 'SGD',
+      createdBy: userId
     });
     
     await bundle.save();
@@ -216,9 +261,8 @@ export const createBundle = async (
     // Update availability after creation
     await bundle.updateAvailability();
     
-    // Populate for response
+    // Populate for response - skip createdBy populate to avoid ObjectId casting errors
     await bundle.populate('bundleProducts.productId', 'name sku availableStock');
-    await bundle.populate('createdBy', 'email name');
     
     console.log(`Bundle created by ${authReq.user.email}: ${bundle.name}`);
     
@@ -245,14 +289,26 @@ export const updateBundle = async (
     // Validate bundle products if being updated
     if (updates.bundleProducts) {
       for (const bundleProduct of updates.bundleProducts) {
-        const product = await Product.findById(bundleProduct.productId);
-        if (!product) {
-          res.status(400).json({ error: `Product with ID ${bundleProduct.productId} not found` });
-          return;
+        let item = null;
+        
+        if (bundleProduct.productType === 'fixed_blend' || bundleProduct.blendTemplateId) {
+          // Check if it's a blend template
+          item = await BlendTemplate.findById(bundleProduct.productId);
+          if (!item) {
+            res.status(400).json({ error: `Blend template with ID ${bundleProduct.productId} not found` });
+            return;
+          }
+        } else {
+          // Check if it's a regular product
+          item = await Product.findById(bundleProduct.productId);
+          if (!item) {
+            res.status(400).json({ error: `Product with ID ${bundleProduct.productId} not found` });
+            return;
+          }
         }
         
         // Update product name from database
-        bundleProduct.name = product.name;
+        bundleProduct.name = item.name;
       }
     }
     
@@ -273,10 +329,8 @@ export const updateBundle = async (
     // Update availability after modification
     await bundle.updateAvailability();
     
-    // Populate for response
+    // Populate for response - skip user populates to avoid ObjectId casting errors
     await bundle.populate('bundleProducts.productId', 'name sku availableStock');
-    await bundle.populate('createdBy', 'email name');
-    await bundle.populate('lastModifiedBy', 'email name');
     
     console.log(`Bundle updated by ${authReq.user.email}: ${bundle.name}`);
     
@@ -429,13 +483,25 @@ export const calculateBundlePricing = async (
     let individualTotalPrice = 0;
     
     for (const bundleProduct of bundleProducts) {
-      const product = await Product.findById(bundleProduct.productId);
-      if (!product) {
-        res.status(400).json({ error: `Product with ID ${bundleProduct.productId} not found` });
-        return;
+      let item = null;
+      
+      if (bundleProduct.productType === 'fixed_blend' || bundleProduct.blendTemplateId) {
+        // Check if it's a blend template
+        item = await BlendTemplate.findById(bundleProduct.productId);
+        if (!item) {
+          res.status(400).json({ error: `Blend template with ID ${bundleProduct.productId} not found` });
+          return;
+        }
+      } else {
+        // Check if it's a regular product
+        item = await Product.findById(bundleProduct.productId);
+        if (!item) {
+          res.status(400).json({ error: `Product with ID ${bundleProduct.productId} not found` });
+          return;
+        }
       }
       
-      const itemTotal = bundleProduct.quantity * (bundleProduct.individualPrice || product.sellingPrice || 0);
+      const itemTotal = bundleProduct.quantity * (bundleProduct.individualPrice || item.sellingPrice || 0);
       individualTotalPrice += itemTotal;
     }
     

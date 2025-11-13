@@ -16,18 +16,29 @@ import {
 
 const router: Router = express.Router();
 
-// Public routes - no authentication required
+// Test route to verify Bundle model
+router.get('/test', async (req, res) => {
+  try {
+    const { Bundle } = await import('../models/Bundle.js');
+    const count = await Bundle.countDocuments();
+    res.json({ success: true, bundleCount: count, message: 'Bundle model working' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message, name: error.name });
+  }
+});
+
+// Public routes - no authentication required  
 router.get('/', getBundles);  // Allow public access to view bundles
+router.get('/categories', getBundleCategories); // Allow public access to categories
+router.get('/popular', getPopularBundles); // Allow public access to popular bundles
+router.get('/promoted', getPromotedBundles); // Allow public access to promoted bundles
 
 // Protected routes - require authentication
-router.get('/categories', authenticateToken, getBundleCategories);
-router.get('/popular', authenticateToken, getPopularBundles);
-router.get('/promoted', authenticateToken, getPromotedBundles);
 router.get('/stats', authenticateToken, getBundleStats);
 router.get('/:id', authenticateToken, getBundleById);
 router.get('/:id/availability', authenticateToken, checkBundleAvailability);
 
-// Protected routes
+// Bundle creation requires authentication and admin/super_admin role
 router.post('/', authenticateToken, requireRole(['admin', 'super_admin']), createBundle);
 router.post('/calculate-pricing', authenticateToken, calculateBundlePricing);
 router.put('/:id', authenticateToken, requireRole(['admin', 'super_admin']), updateBundle);

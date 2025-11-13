@@ -6,8 +6,8 @@ import { authenticateToken, requireRole } from '../middlewares/auth.middleware.j
 const router = Router();
 const blendTemplateService = new BlendTemplateService();
 
-// GET /api/blend-templates - Get all blend templates with optional filters
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+// GET /api/blend-templates - Get all blend templates with optional filters (public access)
+router.get('/', async (req: Request, res: Response) => {
   try {
     const filters: TemplateFilters = {
       isActive: req.query.isActive ? req.query.isActive === 'true' : undefined,

@@ -170,7 +170,7 @@ const RefundSchema = new Schema<IRefund>({
 });
 
 // Indexes for better performance
-RefundSchema.index({ refundNumber: 1 });
+// Note: refundNumber index is already created by unique: true option
 RefundSchema.index({ transactionId: 1 });
 RefundSchema.index({ status: 1 });
 RefundSchema.index({ requestDate: -1 });

@@ -20,17 +20,18 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../*"],
+      "@/*": ["./*", "../*"],
       "@models/*": ["models/*", "../models/*"],
       "@services/*": ["services/*", "../services/*"],
       "@controllers/*": ["controllers/*"],
       "@routes/*": ["routes/*"],
       "@middleware/*": ["middleware/*", "middlewares/*"],
+      "@middlewares/*": ["middlewares/*"],
       "@utils/*": ["utils/*", "../utils/*"],
       "@types/*": ["types/*", "../types/*"],
       "@config/*": ["config/*"],
-      "@lib/*": ["../lib/*"],
-      "@frontend/*": ["../frontend/*"]
+      "@lib/*": ["lib/*", "auth/*", "../frontend/src/lib/*"],
+      "@frontend/*": ["../frontend/src/*"]
     }
   },
   "include": [

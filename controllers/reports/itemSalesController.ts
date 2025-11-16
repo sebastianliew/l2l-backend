@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PipelineStage } from 'mongoose';
-import { ItemSalesData, ItemSalesResponse, ItemSalesFilters } from '../../../types/reports/item-sales.types';
+import { ItemSalesData, ItemSalesResponse, ItemSalesFilters } from '../../types/reports/item-sales.types';
 import { Transaction } from '../../models/Transaction';
 
 export class ItemSalesController {

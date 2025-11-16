@@ -22,8 +22,12 @@ router.get('/test', async (req, res) => {
     const { Bundle } = await import('../models/Bundle.js');
     const count = await Bundle.countDocuments();
     res.json({ success: true, bundleCount: count, message: 'Bundle model working' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message, name: error.name });
+  } catch (error: unknown) {
+    res.status(500).json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      name: error instanceof Error ? error.name : 'UnknownError'
+    });
   }
 });
 

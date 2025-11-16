@@ -28,6 +28,7 @@ import bundlesRoutes from './routes/bundles.routes.js';
 import appointmentsRoutes from './routes/appointments.routes.js';
 import patientsRoutes from './routes/patients.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 // Debug environment variables
 console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
@@ -138,6 +139,7 @@ app.use('/api/bundles', bundlesRoutes);
 app.use('/api', appointmentsRoutes);
 app.use('/api/patients', patientsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response): void => {

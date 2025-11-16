@@ -22,6 +22,11 @@ export type {
   PatientNotification
 } from './types/patient';
 
-// Re-export API routes
-export { GET as getBrands, POST as createBrand } from './api/brands/route';
-export { GET as getBrand, PUT as updateBrand, DELETE as deleteBrand } from './api/brands/[id]/route';
+// Controllers exports  
+export { 
+  getBrands, 
+  getBrandById, 
+  createBrand, 
+  updateBrand, 
+  deleteBrand 
+} from './controllers/brands.controller';

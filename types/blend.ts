@@ -98,3 +98,35 @@ export interface ValidationWarning {
   ingredientName: string;
   warning: string;
 }
+
+export interface CostCalculation {
+  totalCost: number;
+  breakdown: {
+    ingredientId: string;
+    ingredientName: string;
+    quantity: number;
+    unitCost: number;
+    totalCost: number;
+  }[];
+}
+
+export interface PricingSuggestion {
+  suggestedPrice: number;
+  minimumPrice: number;
+  profitMargin: number;
+  breakdown: {
+    cost: number;
+    markup: number;
+    suggestedMarkupPercent: number;
+  };
+}
+
+export interface CustomBlendData {
+  name: string;
+  description?: string;
+  ingredients: BlendIngredient[];
+  totalCost: number;
+  sellingPrice: number;
+  mixedBy: string;
+  notes?: string;
+}

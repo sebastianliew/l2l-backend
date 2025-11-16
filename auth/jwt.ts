@@ -2,25 +2,45 @@
  * JWT Authentication for Node.js Backend
  * Compatible with the frontend JWT implementation
  */
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { IUser } from '../models/User';
 
 // Load environment variables dynamically
 function getJWTSecret(): string {
   const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    console.error('JWT_SECRET environment variable is not set!');
-    console.error('Current env vars:', Object.keys(process.env).filter(k => k.includes('JWT')));
+  if (!secret || secret.trim() === '') {
+    throw new Error('JWT_SECRET environment variable is not set or is empty');
   }
-  return secret || '';
+  return secret;
 }
 
 function getRefreshTokenSecret(): string {
-  return process.env.REFRESH_TOKEN_SECRET || '';
+  const secret = process.env.REFRESH_TOKEN_SECRET;
+  if (!secret || secret.trim() === '') {
+    throw new Error('REFRESH_TOKEN_SECRET environment variable is not set or is empty');
+  }
+  return secret;
 }
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '4h';
 const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
+
+// Helper function to convert time string to seconds
+function parseTimeToSeconds(timeStr: string): number {
+  const match = timeStr.match(/^(\d+)([smhd])$/);
+  if (!match) return 14400; // default 4 hours
+  
+  const [, num, unit] = match;
+  const value = parseInt(num, 10);
+  
+  switch (unit) {
+    case 's': return value;
+    case 'm': return value * 60;
+    case 'h': return value * 3600;
+    case 'd': return value * 86400;
+    default: return 14400; // default 4 hours
+  }
+}
 
 // Token payload interfaces
 interface AccessTokenPayload {
@@ -55,13 +75,10 @@ export function generateAccessToken(
   additionalData: Record<string, any> = {}
 ): string {
   const JWT_SECRET = getJWTSecret();
-  if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required');
-  }
   
   const payload: AccessTokenPayload = {
-    sub: user._id.toString(),
-    userId: user._id.toString(),
+    sub: String(user._id),
+    userId: String(user._id),
     email: user.email,
     role: user.role,
     username: user.username || user.email,
@@ -69,35 +86,32 @@ export function generateAccessToken(
     ...additionalData
   };
   
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
-  });
+  const signOptions: jwt.SignOptions = {
+    expiresIn: parseTimeToSeconds(JWT_EXPIRES_IN),
+  };
+  
+  return jwt.sign(payload, JWT_SECRET, signOptions);
 }
 
 export function generateRefreshToken(user: IUser): string {
   const REFRESH_TOKEN_SECRET = getRefreshTokenSecret();
-  if (!REFRESH_TOKEN_SECRET) {
-    throw new Error('REFRESH_TOKEN_SECRET environment variable is required');
-  }
   
   const payload: RefreshTokenPayload = {
-    sub: user._id.toString(),
-    userId: user._id.toString(),
+    sub: String(user._id),
+    userId: String(user._id),
     type: 'refresh'
   };
   
-  return jwt.sign(payload, REFRESH_TOKEN_SECRET, {
-    expiresIn: REFRESH_TOKEN_EXPIRES_IN
-  });
+  const signOptions: jwt.SignOptions = {
+    expiresIn: parseTimeToSeconds(REFRESH_TOKEN_EXPIRES_IN)
+  };
+  
+  return jwt.sign(payload, REFRESH_TOKEN_SECRET, signOptions);
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload | null {
-  const JWT_SECRET = getJWTSecret();
-  if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required');
-  }
-  
   try {
+    const JWT_SECRET = getJWTSecret();
     return jwt.verify(token, JWT_SECRET) as AccessTokenPayload;
   } catch (error) {
     return null;
@@ -105,12 +119,8 @@ export function verifyAccessToken(token: string): AccessTokenPayload | null {
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload | null {
-  const REFRESH_TOKEN_SECRET = getRefreshTokenSecret();
-  if (!REFRESH_TOKEN_SECRET) {
-    throw new Error('REFRESH_TOKEN_SECRET environment variable is required');
-  }
-  
   try {
+    const REFRESH_TOKEN_SECRET = getRefreshTokenSecret();
     return jwt.verify(token, REFRESH_TOKEN_SECRET) as RefreshTokenPayload;
   } catch (error) {
     return null;

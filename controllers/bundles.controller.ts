@@ -26,6 +26,8 @@ interface BundleProduct {
   quantity: number;
   individualPrice: number;
   totalPrice: number;
+  productType?: string;
+  blendTemplateId?: string;
 }
 
 interface CreateBundleRequest {
@@ -373,7 +375,7 @@ export const getBundleCategories = async (
   res: Response
 ): Promise<void> => {
   try {
-    const categories = await Bundle.distinct('category', { category: { $ne: null, $ne: '' } });
+    const categories = await Bundle.distinct('category', { category: { $nin: [null, ''] } });
     res.json({ categories: categories.filter(cat => cat) });
   } catch (error) {
     console.error('Error fetching bundle categories:', error);

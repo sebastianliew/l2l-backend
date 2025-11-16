@@ -1,12 +1,12 @@
-import dbConnect from '@/lib/mongoose';
-import { Product } from '../../models/Product';
-import { UnitOfMeasurement } from '../../models/UnitOfMeasurement';
+import { connectDB } from '../../lib/mongoose.js';
+import { Product } from '../../models/Product.js';
+import { UnitOfMeasurement } from '../../models/UnitOfMeasurement.js';
 import type { 
   ValidationResult,
   ValidationError,
   ValidationWarning,
   BlendIngredient
-} from '@/frontend/types/blend';
+} from '../../types/blend.js';
 
 /**
  * Validates and enriches blend ingredients
@@ -18,7 +18,7 @@ export class BlendIngredientValidator {
     ingredients: BlendIngredient[], 
     batchQuantity: number = 1
   ): Promise<ValidationResult> {
-    await dbConnect();
+    await connectDB();
     
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
@@ -45,7 +45,7 @@ export class BlendIngredientValidator {
   async validateAndEnrichIngredients(
     ingredients: Omit<BlendIngredient, 'availableStock' | 'selectedContainers'>[]
   ): Promise<BlendIngredient[]> {
-    await dbConnect();
+    await connectDB();
     
     const enrichedIngredients: BlendIngredient[] = [];
     
@@ -214,7 +214,7 @@ export class BlendIngredientValidator {
       reason: string;
     }>;
   }> {
-    await dbConnect();
+    await connectDB();
 
     const issues: string[] = [];
     const autoFixSuggestions: Array<{

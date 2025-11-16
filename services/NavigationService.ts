@@ -1,4 +1,22 @@
-import { NavigationItem } from '@/frontend/components/navigation/types/navigation.types';
+interface PermissionCheck {
+  category: string;
+  permission: string;
+}
+
+interface NavigationVisibility {
+  permissions?: PermissionCheck[];
+  roles?: string[];
+}
+
+interface NavigationItem {
+  id: string;
+  name: string;
+  href: string;
+  icon: string;
+  description?: string;
+  visibility?: NavigationVisibility;
+  children?: NavigationItem[];
+}
 
 export class NavigationService {
   // Navigation items configuration - this would typically come from a database

@@ -76,23 +76,21 @@ export const getBrands = async (req: Request<{}, {}, {}, BrandQueryParams>, res:
     const sortOptions: { [key: string]: 1 | -1 } = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
     // Execute query
-    const [brands, total] = await Promise.all([
-      Brand.find(query)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-      Brand.countDocuments(query)
-    ]);
+    const brands = await Brand.find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum);
+    
+    const total = await Brand.countDocuments(query);
 
     // Add product count to each brand
     const brandsWithCount = await Promise.all(
       brands.map(async (brand) => {
         const productCount = await Product.countDocuments({ 
-          brand: brand._id as string,
+          brand: brand._id,
           isActive: true 
         });
-        return { ...brand, productCount };
+        return { ...brand.toObject(), productCount };
       })
     );
 
@@ -113,7 +111,7 @@ export const getBrands = async (req: Request<{}, {}, {}, BrandQueryParams>, res:
 
 export const getBrandById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
-    const brand = await Brand.findById(req.params.id).lean();
+    const brand = await Brand.findById(req.params.id);
     
     if (!brand) {
       res.status(404).json({ error: 'Brand not found' });
@@ -122,11 +120,11 @@ export const getBrandById = async (req: Request<{ id: string }>, res: Response):
     
     // Get product count
     const productCount = await Product.countDocuments({ 
-      brand: brand._id as string,
+      brand: brand._id,
       isActive: true 
     });
     
-    res.json({ ...brand, productCount });
+    res.json({ ...brand.toObject(), productCount });
   } catch (error) {
     console.error('Error fetching brand:', error);
     res.status(500).json({ error: 'Failed to fetch brand' });

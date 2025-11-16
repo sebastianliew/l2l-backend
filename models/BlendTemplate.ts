@@ -200,7 +200,7 @@ BlendTemplateSchema.methods.recordUsage = async function() {
 
 // Method to calculate blend in different unit
 BlendTemplateSchema.methods.calculateInUnit = async function(targetUnit: string) {
-  const UnitConversionService = (await import('../../frontend/lib/unit-conversion')).default;
+  const UnitConversionService = (await import('../lib/unit-conversion')).default;
   const ingredients = [];
   
   for (const ingredient of this.ingredients) {
@@ -235,7 +235,7 @@ BlendTemplateSchema.methods.calculateInUnit = async function(targetUnit: string)
 
 // Method to scale recipe for different batch size
 BlendTemplateSchema.methods.scaleRecipe = async function(targetQuantity: number, targetUnit?: string) {
-  const UnitConversionService = (await import('../../frontend/lib/unit-conversion')).default;
+  const UnitConversionService = (await import('../lib/unit-conversion')).default;
   
   // Convert batch size to target unit if needed
   let batchSizeInTargetUnit = this.batchSize;

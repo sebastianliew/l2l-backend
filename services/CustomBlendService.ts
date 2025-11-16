@@ -1,8 +1,7 @@
-import { Product } from '../models/Product';
-import { UnitOfMeasurement } from '../models/UnitOfMeasurement';
-import { InventoryMovement } from '../models/inventory/InventoryMovement';
-
-import dbConnect from '@/lib/mongoose';
+import { Product } from '../models/Product.js';
+import { UnitOfMeasurement } from '../models/UnitOfMeasurement.js';
+import { InventoryMovement } from '../models/inventory/InventoryMovement.js';
+import { connectDB } from '../lib/mongoose.js';
 import mongoose from 'mongoose';
 import type { 
   BlendIngredient,
@@ -13,7 +12,7 @@ import type {
   PricingSuggestion,
   CustomBlendData,
   SelectedContainer
-} from '@/frontend/types/blend';
+} from '../types/blend.js';
 
 export class CustomBlendService {
   
@@ -25,7 +24,7 @@ export class CustomBlendService {
     transactionReference: string,
     userId: string
   ): Promise<void> {
-    await dbConnect();
+    await connectDB();
 
     for (const ingredient of customBlendData.ingredients) {
       const product = await Product.findById(ingredient.productId);
@@ -120,7 +119,7 @@ export class CustomBlendService {
 
   // Real-time validation for ingredients
   async validateIngredients(ingredients: BlendIngredient[], multiplier: number = 1): Promise<ValidationResult> {
-    await dbConnect();
+    await connectDB();
     
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
@@ -199,7 +198,7 @@ export class CustomBlendService {
   
   // Calculate blend cost with detailed breakdown
   async calculateBlendCost(ingredients: BlendIngredient[]): Promise<CostCalculation> {
-    await dbConnect();
+    await connectDB();
     
     try {
       const breakdown: CostCalculation['breakdown'] = [];
@@ -260,7 +259,7 @@ export class CustomBlendService {
     transactionId: string,
     transactionNumber: string
   ): Promise<void> {
-    await dbConnect();
+    await connectDB();
     
     try {
       const movements = await this.deductCustomBlendIngredients(
@@ -285,7 +284,7 @@ export class CustomBlendService {
     transactionNumber: string,
     mixedBy: string
   ): Promise<InstanceType<typeof InventoryMovement>[]> {
-    await dbConnect();
+    await connectDB();
     
     const movements = [];
     
@@ -302,7 +301,7 @@ export class CustomBlendService {
         if (ingredient.selectedContainers && ingredient.selectedContainers.length > 0) {
           // Calculate total quantity from selected containers
           const totalQuantity = ingredient.selectedContainers.reduce(
-            (sum, container) => sum + container.quantityToConsume, 
+            (sum: number, container) => sum + container.quantityToConsume, 
             0
           );
           
@@ -367,7 +366,7 @@ export class CustomBlendService {
   
   // Get enriched ingredient data with current prices and availability
   async enrichIngredientData(ingredients: Omit<BlendIngredient, 'availableStock' | 'costPerUnit'>[]): Promise<BlendIngredient[]> {
-    await dbConnect();
+    await connectDB();
     
     const enrichedIngredients: BlendIngredient[] = [];
     
@@ -401,7 +400,7 @@ export class CustomBlendService {
   // Check if ingredients are available for container selection
   // Note: Container functionality has been removed
   async getAvailableContainers(productId: string): Promise<never[]> {
-    await dbConnect();
+    await connectDB();
     
     try {
       // Container functionality has been removed, return empty array
@@ -427,7 +426,7 @@ export class CustomBlendService {
       // Container functionality has been removed
       // Simply validate that total selected quantities match required quantity
       const totalSelectedQuantity = selectedContainers.reduce(
-        (sum, container) => sum + container.quantityToConsume, 
+        (sum: number, container) => sum + container.quantityToConsume, 
         0
       );
       

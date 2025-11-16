@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { ContainerType } from '../models/ContainerType.js';
 import { authenticateToken } from '../middlewares/auth.middleware';
 
@@ -8,16 +8,30 @@ const router = express.Router();
 // TODO: Re-enable auth after frontend auth is properly configured
 // router.use(authenticateToken);
 
-const transformContainerType = (containerType: any) => {
+interface ContainerTypeDocument {
+  _id: string;
+  allowedUoms: unknown[];
+  toObject(): Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface UomObject {
+  abbreviation?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+const transformContainerType = (containerType: ContainerTypeDocument) => {
   const containerTypeObject = containerType.toObject();
   const { _id, allowedUoms, ...rest } = containerTypeObject;
   
-  const transformedUoms = Array.isArray(allowedUoms) ? allowedUoms.map((uom: any) => {
+  const transformedUoms = Array.isArray(allowedUoms) ? allowedUoms.map((uom: unknown) => {
     if (typeof uom === 'string') {
       return uom;
     }
     if (uom && typeof uom === 'object') {
-      return uom.abbreviation || uom.name || String(uom);
+      const uomObj = uom as UomObject;
+      return uomObj.abbreviation || uomObj.name || String(uom);
     }
     return String(uom);
   }) : [];
@@ -30,21 +44,21 @@ const transformContainerType = (containerType: any) => {
 };
 
 // GET /api/container-types - Get all container types
-router.get('/', async (req, res) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const containerTypes = await ContainerType.find()
       .populate('allowedUoms', 'name abbreviation')
       .sort({ name: 1 });
-    const transformedContainerTypes = containerTypes.map(transformContainerType);
-    res.json(transformedContainerTypes);
-  } catch (error) {
+    const transformedContainerTypes = containerTypes.map(ct => transformContainerType(ct as ContainerTypeDocument));
+    return res.json(transformedContainerTypes);
+  } catch (error: unknown) {
     console.error('Error fetching container types:', error);
-    res.status(500).json({ error: 'Failed to fetch container types' });
+    return res.status(500).json({ error: 'Failed to fetch container types' });
   }
 });
 
 // POST /api/container-types - Create a new container type
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const data = req.body;
 
@@ -52,15 +66,15 @@ router.post('/', async (req, res) => {
     await containerType.save();
     await containerType.populate('allowedUoms', 'name abbreviation');
 
-    res.status(201).json(transformContainerType(containerType));
-  } catch (error) {
+    return res.status(201).json(transformContainerType(containerType as ContainerTypeDocument));
+  } catch (error: unknown) {
     console.error('Error creating container type:', error);
-    res.status(500).json({ error: 'Failed to create container type' });
+    return res.status(500).json({ error: 'Failed to create container type' });
   }
 });
 
 // GET /api/container-types/:id - Get a specific container type
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const containerType = await ContainerType.findById(id)
@@ -70,15 +84,15 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Container type not found' });
     }
 
-    res.json(transformContainerType(containerType));
-  } catch (error) {
+    return res.json(transformContainerType(containerType as ContainerTypeDocument));
+  } catch (error: unknown) {
     console.error('Error fetching container type:', error);
-    res.status(500).json({ error: 'Failed to fetch container type' });
+    return res.status(500).json({ error: 'Failed to fetch container type' });
   }
 });
 
 // PUT /api/container-types/:id - Update a specific container type
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const data = req.body;
@@ -93,15 +107,15 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Container type not found' });
     }
 
-    res.json(transformContainerType(containerType));
-  } catch (error) {
+    return res.json(transformContainerType(containerType as ContainerTypeDocument));
+  } catch (error: unknown) {
     console.error('Error updating container type:', error);
-    res.status(500).json({ error: 'Failed to update container type' });
+    return res.status(500).json({ error: 'Failed to update container type' });
   }
 });
 
 // DELETE /api/container-types/:id - Delete a specific container type
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const containerType = await ContainerType.findByIdAndDelete(id);
@@ -110,10 +124,10 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Container type not found' });
     }
 
-    res.json({ message: 'Container type deleted successfully' });
-  } catch (error) {
+    return res.json({ message: 'Container type deleted successfully' });
+  } catch (error: unknown) {
     console.error('Error deleting container type:', error);
-    res.status(500).json({ error: 'Failed to delete container type' });
+    return res.status(500).json({ error: 'Failed to delete container type' });
   }
 });
 

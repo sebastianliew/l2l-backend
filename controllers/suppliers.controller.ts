@@ -89,19 +89,17 @@ export const getSuppliers = async (req: Request<{}, {}, {}, SupplierQueryParams>
     const sortOptions: { [key: string]: 1 | -1 } = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
     // Execute query
-    const [suppliers, total] = await Promise.all([
-      Supplier.find(query)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-      Supplier.countDocuments(query)
-    ]);
+    const suppliers = await Supplier.find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum);
+      
+    const total = await Supplier.countDocuments(query);
 
     // Transform suppliers to include id field and remove _id
     const transformedSuppliers = suppliers.map(supplier => ({
-      ...supplier,
-      id: (supplier._id as string).toString(),
+      ...supplier.toObject(),
+      id: supplier._id.toString(),
       _id: undefined
     }));
 
@@ -114,7 +112,7 @@ export const getSuppliers = async (req: Request<{}, {}, {}, SupplierQueryParams>
 
 export const getSupplierById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
-    const supplier = await Supplier.findById(req.params.id).lean();
+    const supplier = await Supplier.findById(req.params.id);
     
     if (!supplier) {
       res.status(404).json({ error: 'Supplier not found' });
@@ -123,8 +121,8 @@ export const getSupplierById = async (req: Request<{ id: string }>, res: Respons
     
     // Transform supplier to include id field and remove _id
     const transformedSupplier = {
-      ...supplier,
-      id: (supplier._id as string).toString(),
+      ...supplier.toObject(),
+      id: supplier._id.toString(),
       _id: undefined
     };
     

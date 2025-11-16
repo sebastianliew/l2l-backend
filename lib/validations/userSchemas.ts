@@ -12,7 +12,7 @@ export const userBaseSchema = z.object({
     .max(255, 'Email must be less than 255 characters'),
   
   role: z.enum(['super_admin', 'admin', 'manager', 'staff'], {
-    errorMap: () => ({ message: 'Role must be super_admin, admin, manager, or staff' })
+    message: 'Role must be super_admin, admin, manager, or staff'
   }),
   
   firstName: z.string()
@@ -97,7 +97,7 @@ export const passwordResetConfirmSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
   password: passwordSchema,
   confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
+}).refine((data: { password: string; confirmPassword: string }) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"]
 });
@@ -107,7 +107,7 @@ export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: passwordSchema,
   confirmPassword: z.string()
-}).refine((data) => data.newPassword === data.confirmPassword, {
+}).refine((data: { newPassword: string; confirmPassword: string }) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"]
 });

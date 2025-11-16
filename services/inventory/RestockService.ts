@@ -1,9 +1,8 @@
 import { Types, Schema } from 'mongoose';
-import { Product } from '../../models/Product';
-import { Product as IProduct } from '../../../types/inventory';
-import { InventoryMovement, IInventoryMovement } from '../../models/inventory/InventoryMovement';
+import { Product, IProduct } from '../../models/Product.js';
+import { InventoryMovement, IInventoryMovement } from '../../models/inventory/InventoryMovement.js';
 // import { RestockBatch } from '../../../models/RestockBatch'; // TODO: Fix module import
-import { UnitOfMeasurement } from '../../models/UnitOfMeasurement';
+import { UnitOfMeasurement } from '../../models/UnitOfMeasurement.js';
 // TODO: Create proper validation types and classes
 interface RestockOperation {
   productId: string;
@@ -27,7 +26,7 @@ interface ValidationResult {
 }
 
 class RestockBusinessValidator {
-  async validateOperation(operation: RestockOperation, product: any): Promise<ValidationResult> {
+  async validateOperation(operation: RestockOperation, product: IProduct | null): Promise<ValidationResult> {
     const errors: string[] = [];
     
     if (!operation.productId) errors.push('Product ID is required');
@@ -99,7 +98,7 @@ export interface IRestockNotificationService {
 }
 
 export class MongoInventoryRepository implements IInventoryRepository {
-  async findProductById(id: string) {
+  async findProductById(id: string): Promise<IProduct | null> {
     const product = await Product.findById(id)
       .populate('supplierId')
       .populate('unitOfMeasurement')
@@ -112,7 +111,7 @@ export class MongoInventoryRepository implements IInventoryRepository {
     return product;
   }
 
-  async updateProductStock(id: string, quantity: number) {
+  async updateProductStock(id: string, quantity: number): Promise<{ product: IProduct; previousStock: number }> {
     const product = await Product.findById(id);
     if (!product) {
       throw new AppError(`Product with ID ${id} not found`, 404);
@@ -122,12 +121,14 @@ export class MongoInventoryRepository implements IInventoryRepository {
     
     // Create inventory movement record to handle stock updates
     const inventoryMovement = new InventoryMovement({
-      productId: id,
+      productId: new Schema.Types.ObjectId(id),
       productName: product.name,
       movementType: 'adjustment',
       quantity: quantity,
       convertedQuantity: quantity,
-      unitOfMeasurementId: product.unitOfMeasurement,
+      unitOfMeasurementId: typeof product.unitOfMeasurement === 'object'
+        ? product.unitOfMeasurement as Schema.Types.ObjectId
+        : new Schema.Types.ObjectId(product.unitOfMeasurement as string),
       baseUnit: product.unitName || 'unit',
       reference: `RESTOCK-${Date.now()}`,
       reason: `Stock addition`,
@@ -140,12 +141,12 @@ export class MongoInventoryRepository implements IInventoryRepository {
     return { product, previousStock };
   }
 
-  async createInventoryMovement(movementData: Omit<IInventoryMovement, '_id' | 'createdAt' | 'updatedAt'>) {
+  async createInventoryMovement(movementData: Omit<IInventoryMovement, '_id' | 'createdAt' | 'updatedAt'>): Promise<IInventoryMovement> {
     const movement = new InventoryMovement(movementData);
     return await movement.save();
   }
 
-  async findLowStockProducts(threshold: number = 1.0) {
+  async findLowStockProducts(threshold: number = 1.0): Promise<IProduct[]> {
     return await Product.find({
       $expr: {
         $lte: ['$currentStock', { $multiply: ['$reorderPoint', threshold] }]
@@ -208,11 +209,9 @@ export class RestockService {
         productId: new Schema.Types.ObjectId(operation.productId),
         movementType: 'adjustment' as const,
         quantity: operation.quantity,
-        unitOfMeasurementId: new Schema.Types.ObjectId(
-          (typeof product.unitOfMeasurement === 'object' && '_id' in product.unitOfMeasurement 
-            ? product.unitOfMeasurement._id 
-            : product.unitOfMeasurement as unknown as string) || '507f1f77bcf86cd799439011'
-        ),
+        unitOfMeasurementId: typeof product.unitOfMeasurement === 'object'
+          ? product.unitOfMeasurement as Schema.Types.ObjectId
+          : new Schema.Types.ObjectId((product.unitOfMeasurement as string) || '507f1f77bcf86cd799439011'),
         baseUnit: unitOfMeasurement?.name || 'unit',
         convertedQuantity: operation.quantity,
         reference: operation.reference || `RESTOCK-${Date.now()}`,
@@ -228,7 +227,7 @@ export class RestockService {
         previousStock,
         newStock: updatedProduct.currentStock,
         quantityAdded: operation.quantity,
-        movementId: movement._id?.toString() || '',
+        movementId: movement.id?.toString() || '',
         success: true
       };
 
@@ -296,7 +295,7 @@ export class RestockService {
         failureCount,
         results,
         batch: {
-          id: batch._id.toString(),
+          id: batch._id instanceof Types.ObjectId ? batch._id.toString() : String(batch._id),
           createdAt: new Date(),
           status: 'completed' as const
         }
@@ -321,11 +320,16 @@ export class RestockService {
     
     return products
       .filter(product => {
-        if (category && product.category?._id?.toString() !== category) return false;
+        if (category && product.category) {
+          const categoryId = typeof product.category === 'string' 
+            ? product.category 
+            : product.category.toString();
+          if (categoryId !== category) return false;
+        }
         if (supplier && product.supplierId) {
           const supplierIdStr = typeof product.supplierId === 'string' 
             ? product.supplierId 
-            : product.supplierId._id;
+            : product.supplierId.toString();
           if (supplierIdStr !== supplier) return false;
         }
         return true;
@@ -361,7 +365,13 @@ export class RestockService {
     }
 
     return {
-      product,
+      product: {
+        _id: product.id || product._id?.toString() || '',
+        name: product.name,
+        sku: product.sku,
+        currentStock: product.currentStock,
+        reorderPoint: product.reorderPoint
+      },
       currentStock,
       reorderPoint,
       suggestedQuantity,

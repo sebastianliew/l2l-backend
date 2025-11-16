@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import dbConnect from '@/lib/mongoose-global'
+import connectDB from '../lib/mongoose.js'
 
 export interface InventoryItem {
   id: string
@@ -37,7 +37,7 @@ export interface InventoryAnalysisData {
 
 export class InventoryAnalysisService {
   static async getInventoryAnalysis(): Promise<InventoryAnalysisData> {
-    const connection = await dbConnect()
+    const connection = await connectDB()
     if (!connection.connection.db) {
       throw new Error('Database connection not established')
     }
@@ -198,7 +198,15 @@ export class InventoryAnalysisService {
       }
     ]
 
-    return await db.collection('products').aggregate(pipeline).toArray()
+    const results = await db.collection('products').aggregate(pipeline).toArray()
+    const totalValue = results.reduce((sum: number, item: any) => sum + (item.value || 0), 0)
+    
+    return results.map((item: any) => ({
+      category: item.category || 'Uncategorized',
+      items: item.items || 0,
+      value: item.value || 0,
+      percentage: totalValue > 0 ? ((item.value || 0) / totalValue) * 100 : 0
+    })) as CategorySummary[]
   }
 
   private static getStockStatusSummary(inventoryData: InventoryItem[]): StockStatus[] {

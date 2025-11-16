@@ -23,6 +23,7 @@ interface ProductQueryParams {
   maxStock?: string;
   minPrice?: string;
   maxPrice?: string;
+  includeInactive?: string;
 }
 
 interface CreateProductRequest {
@@ -69,6 +70,7 @@ interface ProductQuery {
   brand?: string;
   status?: string;
   isActive?: boolean;
+  isDeleted?: { $ne: boolean } | boolean;
   currentStock?: any;
   $expr?: any;
   sellingPrice?: any;
@@ -480,7 +482,7 @@ export const deleteProduct = async (
     
     const authReq = req as AuthenticatedRequest;
     if (authReq.user) {
-      product.deletedBy = authReq.user._id.toString();
+      product.deletedBy = String(authReq.user._id);
     }
     product.deleteReason = 'User requested deletion';
     

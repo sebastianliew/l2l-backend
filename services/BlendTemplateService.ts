@@ -127,7 +127,7 @@ export class BlendTemplateService {
   }
   
   async updateTemplate(id: string, data: UpdateBlendTemplateData): Promise<IBlendTemplate> {
-    await dbConnect();
+    await connectDB();
     
     try {
       const template = await BlendTemplate.findById(id);
@@ -178,7 +178,7 @@ export class BlendTemplateService {
   }
   
   async deleteTemplate(id: string, deletedBy?: string): Promise<void> {
-    await dbConnect();
+    await connectDB();
 
     try {
       const template = await BlendTemplate.findById(id);
@@ -208,7 +208,7 @@ export class BlendTemplateService {
   
   // Usage tracking
   async recordTemplateUsage(id: string): Promise<void> {
-    await dbConnect();
+    await connectDB();
     
     try {
       const template = await BlendTemplate.findById(id);
@@ -222,7 +222,7 @@ export class BlendTemplateService {
   }
   
   async getPopularTemplates(limit: number = 10): Promise<IBlendTemplate[]> {
-    await dbConnect();
+    await connectDB();
     
     try {
       const templates = await BlendTemplate.find({ isActive: true })
@@ -241,7 +241,7 @@ export class BlendTemplateService {
   
   // Validation helpers
   async validateIngredientAvailability(ingredients: BlendIngredient[], batchQuantity: number = 1): Promise<ValidationResult> {
-    await dbConnect();
+    await connectDB();
     
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
@@ -381,7 +381,7 @@ export class BlendTemplateService {
   
   // Get template categories
   async getCategories(): Promise<string[]> {
-    await dbConnect();
+    await connectDB();
     
     try {
       const categories = await BlendTemplate.distinct('category', { 

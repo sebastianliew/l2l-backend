@@ -6,6 +6,12 @@ import {
   UserStats 
 } from '@/types/user';
 
+interface ApiResponse<T> {
+  data?: T;
+  success?: boolean;
+  message?: string;
+}
+
 export class UserApiService {
   private static baseUrl = '/api/users';
 
@@ -38,8 +44,8 @@ export class UserApiService {
       throw new Error('Failed to fetch users');
     }
     
-    const result = await response.json();
-    return result?.data || result || [];
+    const result = await response.json() as ApiResponse<User[]> | User[];
+    return (result as ApiResponse<User[]>)?.data || result as User[] || [];
   }
 
   static async getUserById(id: string): Promise<User> {
@@ -54,8 +60,8 @@ export class UserApiService {
       throw new Error('Failed to fetch user');
     }
     
-    const result = await response.json();
-    return result?.data || result;
+    const result = await response.json() as ApiResponse<User> | User;
+    return (result as ApiResponse<User>)?.data || result as User;
   }
 
   static async createUser(userData: CreateUserData): Promise<User> {
@@ -72,8 +78,8 @@ export class UserApiService {
       throw new Error('Failed to create user');
     }
     
-    const result = await response.json();
-    return result?.data || result;
+    const result = await response.json() as ApiResponse<User> | User;
+    return (result as ApiResponse<User>)?.data || result as User;
   }
 
   static async updateUser(id: string, userData: UpdateUserData): Promise<User> {
@@ -90,8 +96,8 @@ export class UserApiService {
       throw new Error('Failed to update user');
     }
     
-    const result = await response.json();
-    return result?.data || result;
+    const result = await response.json() as ApiResponse<User> | User;
+    return (result as ApiResponse<User>)?.data || result as User;
   }
 
   static async deleteUser(id: string): Promise<void> {

@@ -15,11 +15,25 @@ router.get('/', async (req: Request, res: Response) => {
     };
 
     const templates = await blendTemplateService.getTemplates(filters);
-    res.json(templates);
+    return res.json(templates);
   } catch (error: unknown) {
     console.error('Error fetching blend templates:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to fetch blend templates',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// GET /api/blend-templates/categories - Get template categories
+router.get('/categories', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const categories = await blendTemplateService.getCategories();
+    return res.json(categories);
+  } catch (error: unknown) {
+    console.error('Error fetching blend template categories:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch categories',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -35,10 +49,10 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Blend template not found' });
     }
     
-    res.json(template);
+    return res.json(template);
   } catch (error: unknown) {
     console.error('Error fetching blend template:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to fetch blend template',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -90,10 +104,10 @@ router.post('/', authenticateToken, requireRole(['admin', 'super_admin']), async
     }
 
     const template = await blendTemplateService.createTemplate(data);
-    res.status(201).json(template);
+    return res.status(201).json(template);
   } catch (error: unknown) {
     console.error('Error creating blend template:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to create blend template',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -112,10 +126,10 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'super_admin']), asy
       return res.status(404).json({ error: 'Blend template not found' });
     }
     
-    res.json(template);
+    return res.json(template);
   } catch (error: unknown) {
     console.error('Error updating blend template:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to update blend template',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -127,31 +141,12 @@ router.delete('/:id', authenticateToken, requireRole(['admin', 'super_admin']), 
   try {
     const { id } = req.params;
     
-    const success = await blendTemplateService.deleteTemplate(id);
-    
-    if (!success) {
-      return res.status(404).json({ error: 'Blend template not found' });
-    }
-    
-    res.status(204).send();
+    await blendTemplateService.deleteTemplate(id);
+    return res.status(204).send();
   } catch (error: unknown) {
     console.error('Error deleting blend template:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to delete blend template',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-// GET /api/blend-templates/categories - Get template categories
-router.get('/categories', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const categories = await blendTemplateService.getCategories();
-    res.json(categories);
-  } catch (error: unknown) {
-    console.error('Error fetching blend template categories:', error);
-    res.status(500).json({
-      error: 'Failed to fetch categories',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

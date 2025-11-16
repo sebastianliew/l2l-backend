@@ -1,13 +1,12 @@
-import { BlendTemplate } from '../../models/BlendTemplate';
-import { UnitOfMeasurement } from '../../models/UnitOfMeasurement';
-
-import dbConnect from '@/lib/mongoose';
+import { BlendTemplate } from '../../models/BlendTemplate.js';
+import { UnitOfMeasurement } from '../../models/UnitOfMeasurement.js';
+import { connectDB } from '../../lib/mongoose.js';
 import type { 
   BlendTemplate as IBlendTemplate,
   CreateBlendTemplateData, 
   UpdateBlendTemplateData, 
   TemplateFilters
-} from '@/frontend/types/blend';
+} from '../../types/blend.js';
 
 type MongoQuery = {
   isActive?: boolean;
@@ -22,7 +21,7 @@ type MongoQuery = {
 export class BlendTemplateRepository {
   
   async create(data: CreateBlendTemplateData): Promise<IBlendTemplate> {
-    await dbConnect();
+    await connectDB();
     
     const template = new BlendTemplate(data);
     await template.save();
@@ -31,14 +30,14 @@ export class BlendTemplateRepository {
   }
   
   async findById(id: string): Promise<IBlendTemplate | null> {
-    await dbConnect();
+    await connectDB();
     
     const template = await BlendTemplate.findById(id);
     return template ? template.toJSON() as IBlendTemplate : null;
   }
   
   async findByIdWithPopulation(id: string): Promise<IBlendTemplate> {
-    await dbConnect();
+    await connectDB();
     
     const template = await BlendTemplate.findById(id)
       .populate('ingredients.productId')
@@ -53,7 +52,7 @@ export class BlendTemplateRepository {
   }
   
   async findAll(filters: TemplateFilters = {}): Promise<IBlendTemplate[]> {
-    await dbConnect();
+    await connectDB();
     
     const query = this.buildQuery(filters);
     
@@ -67,7 +66,7 @@ export class BlendTemplateRepository {
   }
   
   async update(id: string, data: UpdateBlendTemplateData): Promise<IBlendTemplate> {
-    await dbConnect();
+    await connectDB();
     
     const template = await BlendTemplate.findById(id);
     if (!template) {
@@ -88,7 +87,7 @@ export class BlendTemplateRepository {
   }
   
   async delete(id: string): Promise<void> {
-    await dbConnect();
+    await connectDB();
     
     const result = await BlendTemplate.findByIdAndDelete(id);
     if (!result) {
@@ -97,7 +96,7 @@ export class BlendTemplateRepository {
   }
   
   async findPopular(limit: number = 10): Promise<IBlendTemplate[]> {
-    await dbConnect();
+    await connectDB();
     
     const templates = await BlendTemplate.find({ isActive: true })
       .sort({ usageCount: -1, lastUsed: -1 })
@@ -110,7 +109,7 @@ export class BlendTemplateRepository {
   }
   
   async recordUsage(id: string): Promise<void> {
-    await dbConnect();
+    await connectDB();
     
     const template = await BlendTemplate.findById(id);
     if (template) {
@@ -119,7 +118,7 @@ export class BlendTemplateRepository {
   }
   
   async getCategories(): Promise<string[]> {
-    await dbConnect();
+    await connectDB();
     
     const categories = await BlendTemplate.distinct('category', { 
       isActive: true, 
@@ -130,7 +129,7 @@ export class BlendTemplateRepository {
   }
   
   async getUnitOfMeasurement(id: string): Promise<{ _id: string; name: string; isActive: boolean; type?: string }> {
-    await dbConnect();
+    await connectDB();
     
     const uom = await UnitOfMeasurement.findById(id);
     if (!uom) {

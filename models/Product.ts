@@ -73,6 +73,22 @@ export interface IProduct extends Document {
   deleteReason?: string;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Method signatures
+  handlePartialContainerSale(quantity: number): Promise<void>;
+  handleFullContainerSale(): Promise<void>;
+  updateRestockAnalytics(quantity: number): Promise<void>;
+  needsRestock(threshold?: number): boolean;
+  getSuggestedRestockQuantity(): number;
+  isAutoReorderDue(): boolean;
+  getBackorderQuantity(): number;
+  isOversold(): boolean;
+  getAvailableStock(): number;
+  needsUrgentRestock(): boolean;
+  populateReferences(): Promise<IProduct>;
+  convertUnit(fromValue: number, fromUnit: string, toUnit: string): number;
+  addUnitConversion(fromUnit: string, toUnit: string, factor: number): Promise<void>;
+  generateSKU(): Promise<string>;
 }
 
 // Container Schema

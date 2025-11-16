@@ -1,6 +1,6 @@
-import { BlendTemplateRepository } from './BlendTemplateRepository';
-import { BlendIngredientValidator } from './BlendIngredientValidator';
-import { BlendUsageTracker } from './BlendUsageTracker';
+import { BlendTemplateRepository } from './BlendTemplateRepository.js';
+import { BlendIngredientValidator } from './BlendIngredientValidator.js';
+import { BlendUsageTracker } from './BlendUsageTracker.js';
 import type { 
   BlendTemplate as IBlendTemplate,
   CreateBlendTemplateData, 
@@ -8,7 +8,7 @@ import type {
   TemplateFilters,
   ValidationResult,
   BlendIngredient
-} from '@/frontend/types/blend';
+} from '../../types/blend.js';
 
 /**
  * Main service for blend template operations

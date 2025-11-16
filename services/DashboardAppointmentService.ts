@@ -1,5 +1,5 @@
-import connectDB from '@/lib/mongodb';
-import { Appointment } from '@/models';
+import connectDB from '../lib/mongodb.js';
+import Appointment from '../models/Appointment.js';
 import { Types } from 'mongoose';
 import { 
   AppointmentStatus, 

@@ -2,10 +2,6 @@ if (typeof Proxy === 'undefined') {
   console.warn('Proxy is not supported in this environment. Some features may not work correctly.');
 }
 
-if (typeof globalThis === 'undefined') {
-  (window as Window).globalThis = window;
-}
-
 import mongoose from 'mongoose';
 
 if (!process.env.MONGODB_URI) {

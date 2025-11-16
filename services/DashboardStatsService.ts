@@ -1,7 +1,7 @@
-import { Product } from '@/models';
-import { Patient } from '../models/Patient';
-import { DashboardStats } from '../dashboard/types/dashboard.types';
-import connectDB from '@/lib/mongodb';
+import { Product } from '../models/Product.js';
+import { Patient } from '../models/Patient.js';
+import { DashboardStats } from '../dashboard/types/dashboard.types.js';
+import connectDB from '../lib/mongodb.js';
 
 export class DashboardStatsService {
   async getDashboardStats(): Promise<DashboardStats> {

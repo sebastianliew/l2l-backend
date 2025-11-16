@@ -1,4 +1,4 @@
-import { User } from '../../../../backend/models/User';
+import { User } from '../../models/User';
 import type { PermissionCheck, FeaturePermissions } from './types';
 
 export interface RoleTemplate {
@@ -511,7 +511,7 @@ export class PermissionService {
     const summary: { category: string; permissions: string[] }[] = [];
 
     Object.entries(effective).forEach(([category, perms]) => {
-      const enabledPermissions = Object.entries(perms)
+      const enabledPermissions = Object.entries(perms as Record<string, unknown>)
         .filter(([_, value]) => value === true)
         .map(([key, _]) => key);
       

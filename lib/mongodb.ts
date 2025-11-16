@@ -4,10 +4,6 @@ if (typeof Proxy === 'undefined') {
 
 import mongoose from 'mongoose';
 
-if (!process.env.MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
-}
-
 interface Cached {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
@@ -28,6 +24,10 @@ if (!globalThis.mongoose) {
 }
 
 async function connectDB() {
+  if (!process.env.MONGODB_URI) {
+    throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  }
+
   if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }

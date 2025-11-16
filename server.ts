@@ -1,10 +1,5 @@
-import express, { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+// Load environment variables BEFORE any other imports
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -12,27 +7,35 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load environment variables from root directory BEFORE importing any routes
-dotenv.config({ path: join(__dirname, '../.env.local') });
+// Load environment variables from backend directory FIRST
+dotenv.config({ path: join(__dirname, '.env.local') });
+
+import express, { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import mongoose from 'mongoose';
 
 // Import routes AFTER loading environment variables
-import authRoutes from './routes/auth.routes.js';
-import brandsRoutes from './routes/brands.routes.js';
-import containerTypesRoutes from './routes/container-types.routes.js';
-import refundsRoutes from './routes/refunds.routes.js';
-import transactionsRoutes from './routes/transactions.routes.js';
-import blendTemplatesRoutes from './routes/blend-templates.routes.js';
-import inventoryRoutes from './routes/inventory.routes.js';
-import suppliersRoutes from './routes/suppliers.routes.js';
-import bundlesRoutes from './routes/bundles.routes.js';
-import appointmentsRoutes from './routes/appointments.routes.js';
-import patientsRoutes from './routes/patients.routes.js';
-import reportsRoutes from './routes/reports.routes.js';
-import dashboardRoutes from './routes/dashboard.routes.js';
+import authRoutes from './routes/auth.routes';
+import brandsRoutes from './routes/brands.routes';
+import containerTypesRoutes from './routes/container-types.routes';
+import refundsRoutes from './routes/refunds.routes';
+import transactionsRoutes from './routes/transactions.routes';
+import blendTemplatesRoutes from './routes/blend-templates.routes';
+import inventoryRoutes from './routes/inventory.routes';
+import suppliersRoutes from './routes/suppliers.routes';
+import bundlesRoutes from './routes/bundles.routes';
+import appointmentsRoutes from './routes/appointments.routes';
+import patientsRoutes from './routes/patients.routes';
+import reportsRoutes from './routes/reports.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 
 // Debug environment variables
 console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
-console.log('Environment file path:', join(__dirname, '../.env.local'));
+console.log('MONGODB_URI loaded:', process.env.MONGODB_URI ? 'Yes' : 'No');
+console.log('Environment file path:', join(__dirname, '.env.local'));
 
 // Type for environment variables
 declare global {

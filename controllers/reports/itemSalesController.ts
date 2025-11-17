@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PipelineStage } from 'mongoose';
 import { ItemSalesData, ItemSalesResponse, ItemSalesFilters } from '../../types/reports/item-sales.types.js';
 import { Transaction } from '../../models/Transaction.js';
+import { Product } from '../../models/Product.js';
 
 export class ItemSalesController {
   static async getItemSalesReport(
@@ -30,7 +31,7 @@ export class ItemSalesController {
         }
       }
 
-      // Build aggregation pipeline with proper typing
+      // Build aggregation pipeline to get sales data first (without cost calculation)
       const pipeline: PipelineStage[] = [
         // Match only completed sales transactions
         {
@@ -60,20 +61,12 @@ export class ItemSalesController {
         });
       }
 
-      // Group by product to calculate metrics
+      // Group by product to calculate metrics (without cost for now)
       pipeline.push({
         $group: {
           _id: '$items.productId',
           item_name: { $first: '$items.name' },
           total_sales: { $sum: '$items.totalPrice' },
-          total_cost: {
-            $sum: {
-              $multiply: [
-                '$items.quantity',
-                { $ifNull: ['$items.unitPrice', 0] }
-              ]
-            }
-          },
           total_discount: { $sum: { $ifNull: ['$items.discountAmount', 0] } },
           total_tax: {
             $sum: {
@@ -86,70 +79,74 @@ export class ItemSalesController {
           quantity_sold: { $sum: '$items.quantity' },
           base_unit: { $first: { $ifNull: ['$items.baseUnit', 'unit'] } },
           average_list_price: { $avg: '$items.unitPrice' },
-          average_cost_price: {
-            $avg: {
-              $divide: [
-                { $multiply: ['$items.quantity', { $ifNull: ['$items.unitPrice', 0] }] },
-                '$items.quantity'
-              ]
-            }
-          },
           last_sale_date: { $max: '$createdAt' }
         }
       });
 
-      // Calculate margin and format the output
-      pipeline.push({
-        $project: {
-          _id: 0,
-          item_name: 1,
-          total_sales: 1,
-          total_cost: 1,
-          total_discount: 1,
-          total_tax: 1,
-          quantity_sold: 1,
-          base_unit: 1,
-          average_list_price: 1,
-          average_cost_price: 1,
-          last_sale_date: 1,
-          margin: {
-            $cond: {
-              if: { $eq: ['$total_sales', 0] },
-              then: 0,
-              else: {
-                $divide: [
-                  { $subtract: ['$total_sales', '$total_cost'] },
-                  '$total_sales'
-                ]
-              }
-            }
-          }
+      // Get initial results without cost data
+      const salesResults = await Transaction.aggregate(pipeline);
+
+      // Get all unique product IDs from the results
+      const productIds = salesResults
+        .map(result => result._id)
+        .filter(id => typeof id === 'string' && id.length === 24 && /^[a-fA-F0-9]{24}$/.test(id));
+
+      // Fetch actual cost prices for valid product IDs
+      const products = await Product.find(
+        { _id: { $in: productIds } },
+        { _id: 1, costPrice: 1 }
+      ).lean();
+
+      // Create a map of productId -> costPrice
+      const costPriceMap = new Map<string, number>();
+      products.forEach(product => {
+        costPriceMap.set((product._id as any).toString(), product.costPrice || 0);
+      });
+
+      // Calculate final results with actual cost data
+      const results: ItemSalesData[] = salesResults.map(item => {
+        const productId = item._id;
+        const costPrice = costPriceMap.get(productId) || 0;
+        const total_cost = item.quantity_sold * costPrice;
+        
+        return {
+          item_name: item.item_name,
+          total_sales: item.total_sales,
+          total_cost: total_cost,
+          total_discount: item.total_discount,
+          total_tax: item.total_tax,
+          quantity_sold: item.quantity_sold,
+          base_unit: item.base_unit,
+          average_list_price: item.average_list_price,
+          average_cost_price: costPrice,
+          last_sale_date: item.last_sale_date,
+          margin: item.total_sales > 0 ? (item.total_sales - total_cost) / item.total_sales : 0
+        };
+      });
+
+      // Apply minimum sales filter if specified
+      let filteredResults = results;
+      if (minSales && !isNaN(Number(minSales))) {
+        filteredResults = results.filter(item => item.total_sales >= Number(minSales));
+      }
+
+      // Sort results
+      filteredResults.sort((a, b) => {
+        const aValue = a[sortBy as keyof ItemSalesData] as number;
+        const bValue = b[sortBy as keyof ItemSalesData] as number;
+        
+        if (sortOrder === 'asc') {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
         }
       });
 
-      // Add minimum sales filter if specified
-      if (minSales && !isNaN(Number(minSales))) {
-        pipeline.push({
-          $match: {
-            total_sales: { $gte: Number(minSales) }
-          }
-        });
-      }
-
-      // Sort by specified field
-      const sortField: Record<string, 1 | -1> = {};
-      sortField[sortBy] = sortOrder === 'asc' ? 1 : -1;
-      pipeline.push({
-        $sort: sortField
-      });
-
-      const results = await Transaction.aggregate<ItemSalesData>(pipeline);
-
       res.json({
-        data: results,
+        data: filteredResults,
         success: true,
         metadata: {
-          totalItems: results.length,
+          totalItems: filteredResults.length,
           generatedAt: new Date().toISOString()
         }
       });

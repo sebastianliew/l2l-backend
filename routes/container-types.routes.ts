@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { ContainerType } from '../models/ContainerType.js';
-import { authenticateToken } from '../middlewares/auth.middleware';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 

@@ -1,5 +1,5 @@
 import express, { Router } from 'express';
-import { authenticateToken, requireRole } from '../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../middlewares/auth.middleware.js';
 import {
   getBrands,
   getBrandById,

@@ -3,7 +3,7 @@
  * Compatible with the frontend JWT implementation
  */
 import jwt from 'jsonwebtoken';
-import { IUser } from '../models/User';
+import { IUser } from '../models/User.js';
 
 // Load environment variables dynamically
 function getJWTSecret(): string {

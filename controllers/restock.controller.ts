@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { RestockService } from '../services/inventory/RestockService.js';
-import { RestockValidator } from '../lib/validations/restock';
+import { RestockValidator } from '../lib/validations/restock.js';
 
 const restockService = new RestockService();
 

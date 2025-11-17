@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { Category, ICategory } from '../models/Category';
-import { Product } from '../models/Product';
-import { IUser } from '../models/User';
+import { Category, ICategory } from '../models/Category.js';
+import { Product } from '../models/Product.js';
+import { IUser } from '../models/User.js';
 
 // Request interfaces
 interface CategoryQueryParams {

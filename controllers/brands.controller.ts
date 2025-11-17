@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Brand, IBrand } from '../models/Brand';
-import { Product } from '../models/Product';
-import { IUser } from '../models/User';
+import { Brand, IBrand } from '../models/Brand.js';
+import { Product } from '../models/Product.js';
+import { IUser } from '../models/User.js';
 
 // Request interfaces
 interface BrandQueryParams {

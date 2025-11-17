@@ -1,6 +1,6 @@
-import { Supplier } from '../models/Supplier'
-import { SupplierCategory } from '../models/SupplierCategory'
-import connectDB from '../lib/mongodb'
+import { Supplier } from '../models/Supplier.js'
+import { SupplierCategory } from '../models/SupplierCategory.js'
+import connectDB from '../lib/mongodb.js'
 
 export class SupplierService {
   static async getAllSuppliers() {

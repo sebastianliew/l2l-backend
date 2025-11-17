@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/auth-config';
-import { User } from '../../models/User';
+import { User } from '../../models/User.js';
 import connectDB from '@/lib/mongodb';
 
 export interface AuthUser {

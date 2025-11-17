@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { PipelineStage } from 'mongoose';
-import { ItemSalesData, ItemSalesResponse, ItemSalesFilters } from '../../types/reports/item-sales.types';
-import { Transaction } from '../../models/Transaction';
+import { ItemSalesData, ItemSalesResponse, ItemSalesFilters } from '../../types/reports/item-sales.types.js';
+import { Transaction } from '../../models/Transaction.js';
 
 export class ItemSalesController {
   static async getItemSalesReport(

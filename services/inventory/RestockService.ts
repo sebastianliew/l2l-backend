@@ -1,7 +1,7 @@
 import { Types, Schema } from 'mongoose';
 import { Product, IProduct } from '../../models/Product.js';
 import { InventoryMovement, IInventoryMovement } from '../../models/inventory/InventoryMovement.js';
-// import { RestockBatch } from '../../../models/RestockBatch'; // TODO: Fix module import
+// import { RestockBatch } from '../../../models/RestockBatch.js'; // TODO: Fix module import
 import { UnitOfMeasurement } from '../../models/UnitOfMeasurement.js';
 // TODO: Create proper validation types and classes
 interface RestockOperation {

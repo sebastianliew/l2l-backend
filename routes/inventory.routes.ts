@@ -1,5 +1,5 @@
 import express, { Router } from 'express';
-import { authenticateToken } from '../middlewares/auth.middleware';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
 import { 
   getUnits,
   getUnitById,

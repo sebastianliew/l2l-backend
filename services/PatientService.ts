@@ -1,5 +1,5 @@
-import { Patient } from '../models/Patient';
-import type { PatientFormData } from '../types/patient';
+import { Patient } from '../models/Patient.js';
+import type { PatientFormData } from '../types/patient.js';
 
 export class PatientService {
   // Get all patients with search and pagination

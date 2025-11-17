@@ -1,5 +1,5 @@
-import { User } from '../../models/User';
-import type { PermissionCheck, FeaturePermissions } from './types';
+import { User } from '../../models/User.js';
+import type { PermissionCheck, FeaturePermissions } from './types.js';
 
 export interface RoleTemplate {
   name: string;

@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import type { BrandStatus } from '../types/brands/brand.types';
+import type { BrandStatus } from '../types/brands/brand.types.js';
 
 // Define sub-schemas
 const BrandCategorySchema = new Schema({

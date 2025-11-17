@@ -1,5 +1,5 @@
-import { User } from '@/backend/models/User';
-import connectDB from '@/backend/lib/mongodb';
+import { User } from '../models/User.js';
+import connectDB from '../lib/mongodb.js';
 
 type PermissionCategory = {
   [key: string]: boolean | number;

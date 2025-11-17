@@ -11,7 +11,7 @@ import type {
   ValidationError,
   ValidationWarning,
   BlendIngredient
-} from '../../frontend/src/types/blend.js';
+} from '../types/blend.js';
 
 export class BlendTemplateService {
   

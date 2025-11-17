@@ -2,7 +2,7 @@
  * JWT Authentication for Node.js Backend
  * Compatible with the frontend JWT implementation
  */
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { IUser } from '../models/User';
 
 // Load environment variables dynamically

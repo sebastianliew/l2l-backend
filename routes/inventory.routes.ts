@@ -34,16 +34,16 @@ import {
 
 const router: Router = express.Router();
 
-// All inventory operations require authentication for medical/business data security
-router.get('/units', authenticateToken, getUnits);
-router.get('/units/:id', authenticateToken, getUnitById);
+// Units routes - public access for viewing units
+router.get('/units', getUnits); // Public access for viewing units
+router.get('/units/:id', getUnitById); // Public access for viewing units
 router.post('/units', authenticateToken, createUnit);
 router.put('/units/:id', authenticateToken, updateUnit);
 router.delete('/units/:id', authenticateToken, deleteUnit);
 
-// Categories routes - require authentication for business data security
-router.get('/categories', authenticateToken, getCategories);
-router.get('/categories/:id', authenticateToken, getCategoryById);
+// Categories routes - public access for viewing categories
+router.get('/categories', getCategories); // Public access for viewing categories
+router.get('/categories/:id', getCategoryById); // Public access for viewing categories
 router.post('/categories', authenticateToken, createCategory);
 router.put('/categories/:id', authenticateToken, updateCategory);
 router.delete('/categories/:id', authenticateToken, deleteCategory);

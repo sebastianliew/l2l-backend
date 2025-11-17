@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { Brand, IBrand } from '../models/Brand';
 import { Product } from '../models/Product';
 import { IUser } from '../models/User';
@@ -111,6 +112,12 @@ export const getBrands = async (req: Request<{}, {}, {}, BrandQueryParams>, res:
 
 export const getBrandById = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
   try {
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ error: 'Invalid brand ID' });
+      return;
+    }
+
     const brand = await Brand.findById(req.params.id);
     
     if (!brand) {
@@ -189,6 +196,12 @@ export const createBrand = async (req: AuthenticatedRequest, res: Response): Pro
 
 export const updateBrand = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ error: 'Invalid brand ID' });
+      return;
+    }
+
     const updates = { ...req.body } as UpdateBrandRequest;
     
     // Remove fields that shouldn't be updated
@@ -252,6 +265,12 @@ export const updateBrand = async (req: AuthenticatedRequest, res: Response): Pro
 
 export const deleteBrand = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ error: 'Invalid brand ID' });
+      return;
+    }
+
     // Check if brand has products
     const productCount = await Product.countDocuments({ brand: req.params.id });
     

@@ -9,6 +9,8 @@ export interface IBundle extends Document {
   isActive: boolean;
   isPromoted: boolean;
   promotionText?: string;
+  validFrom?: Date;
+  validUntil?: Date;
   
   // Bundle Products
   bundleProducts: Array<{
@@ -16,8 +18,13 @@ export interface IBundle extends Document {
     product?: any;
     name: string;
     quantity: number;
+    productType: 'product' | 'fixed_blend';
+    blendTemplateId?: Schema.Types.ObjectId;
+    unitOfMeasurementId?: Schema.Types.ObjectId;
+    unitName?: string;
     individualPrice: number;
     totalPrice: number;
+    notes?: string;
   }>;
   
   // Pricing
@@ -34,6 +41,7 @@ export interface IBundle extends Document {
   
   // Metadata
   tags: string[];
+  internalNotes?: string;
   weight?: number;
   dimensions?: {
     length: number;
@@ -58,8 +66,13 @@ const bundleProductSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   name: { type: String, required: true },
   quantity: { type: Number, required: true, min: 1 },
+  productType: { type: String, enum: ['product', 'fixed_blend'], required: true },
+  blendTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'BlendTemplate' },
+  unitOfMeasurementId: { type: mongoose.Schema.Types.ObjectId, ref: 'UnitOfMeasurement' },
+  unitName: { type: String },
   individualPrice: { type: Number, required: true, min: 0 },
-  totalPrice: { type: Number, required: true, min: 0 }
+  totalPrice: { type: Number, required: true, min: 0 },
+  notes: { type: String }
 }, { _id: false });
 
 const bundleSchema = new mongoose.Schema<IBundle>({
@@ -75,6 +88,8 @@ const bundleSchema = new mongoose.Schema<IBundle>({
   isActive: { type: Boolean, default: true },
   isPromoted: { type: Boolean, default: false },
   promotionText: { type: String, trim: true },
+  validFrom: { type: Date },
+  validUntil: { type: Date },
   
   // Bundle Products
   bundleProducts: [bundleProductSchema],
@@ -93,6 +108,7 @@ const bundleSchema = new mongoose.Schema<IBundle>({
   
   // Metadata
   tags: [{ type: String, trim: true }],
+  internalNotes: { type: String, trim: true },
   weight: { type: Number, min: 0 },
   dimensions: {
     length: { type: Number, min: 0 },

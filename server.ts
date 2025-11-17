@@ -16,6 +16,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
+import { createServer } from 'http';
+import { AddressInfo } from 'net';
 
 // Import routes AFTER loading environment variables
 import authRoutes from './routes/auth.routes';
@@ -52,23 +54,51 @@ declare global {
 }
 
 const app: Express = express();
-const PORT: number = parseInt(process.env.BACKEND_PORT || '5001', 10);
+// Use dynamic port allocation with fallback
+const PORT: number = parseInt(process.env.BACKEND_PORT || process.env.PORT || '5000', 10);
 
-// Database connection
-const mongoUri: string = process.env.MONGODB_URI || 'mongodb://localhost:27017/l2l-backend';
+// Database connection - use MongoDB Atlas URI from environment
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI environment variable is required');
+  process.exit(1);
+}
+
+const mongoUri: string = process.env.MONGODB_URI;
 
 // MongoDB connection options
 const mongoOptions = {
   serverSelectionTimeoutMS: 30000, // 30 seconds
   socketTimeoutMS: 45000, // 45 seconds
   maxPoolSize: 10,
-  minPoolSize: 5,
+  minPoolSize: 2,
   maxIdleTimeMS: 30000,
+  connectTimeoutMS: 30000,
+  heartbeatFrequencyMS: 2000,
 };
 
 mongoose.connect(mongoUri, mongoOptions)
-  .then(() => console.log('✅ MongoDB connected successfully'))
+  .then(() => console.log('✅ MongoDB Atlas connected successfully'))
   .catch((err: Error) => console.error('❌ MongoDB connection error:', err));
+
+// MongoDB connection events
+mongoose.connection.on('connected', () => {
+  console.log('🔗 Mongoose connected to MongoDB Atlas');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ Mongoose disconnected from MongoDB Atlas');
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  console.log('🔐 MongoDB Atlas connection closed through app termination');
+  process.exit(0);
+});
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -85,15 +115,24 @@ const corsOptions: cors.CorsOptions = {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
+      'http://localhost:3003',
       process.env.FRONTEND_URL,
     ].filter((origin): origin is string => Boolean(origin));
     
+    console.log(`🌐 CORS Request from origin: ${origin || 'no-origin'}`);
+    console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
+    
     // Allow requests with no origin (like mobile apps or Postman)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log(`✅ Origin ${origin} is allowed`);
       callback(null, true);
     } else {
+      console.log(`❌ Origin ${origin} is NOT allowed`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -189,10 +228,22 @@ const errorHandler: ErrorRequestHandler = (
 
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
+// Start server with dynamic port allocation
+const server = createServer(app);
+
+server.listen(PORT, () => {
+  const address = server.address() as AddressInfo;
+  const actualPort = address.port;
+  
+  console.log(`🚀 Backend server is running on http://localhost:${actualPort}`);
   console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 API Base URL: http://localhost:${actualPort}/api`);
+  
+  // If port is different from requested, suggest updating frontend config
+  if (actualPort !== PORT) {
+    console.log(`⚠️  Server started on port ${actualPort} instead of ${PORT}`);
+    console.log(`💡 Update NEXT_PUBLIC_API_URL to: http://localhost:${actualPort}/api`);
+  }
 });
 
 export default app;

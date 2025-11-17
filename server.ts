@@ -158,6 +158,13 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
+// Root endpoint
+app.get('/', (_req: Request, res: Response): void => {
+  res.status(200).json({
+    message: 'API and backend server is running'
+  });
+});
+
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response): void => {
   res.status(200).json({ 

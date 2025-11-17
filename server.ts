@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load environment variables from backend directory FIRST
-dotenv.config({ path: join(__dirname, '.env.local') });
+dotenv.config({ path: join(__dirname, '../.env.local') });
 
 import express, { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import cors from 'cors';
@@ -37,7 +37,7 @@ import dashboardRoutes from './routes/dashboard.routes.js';
 // Debug environment variables
 console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
 console.log('MONGODB_URI loaded:', process.env.MONGODB_URI ? 'Yes' : 'No');
-console.log('Environment file path:', join(__dirname, '.env.local'));
+console.log('Environment file path:', join(__dirname, '../.env.local'));
 
 // Type for environment variables
 declare global {

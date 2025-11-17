@@ -1,6 +1,6 @@
 // Backend exports for Brands
-export { Brand, type IBrand } from './models/Brand';
-export { BrandService } from './services/brands/BrandService';
+export { Brand, type IBrand } from './models/Brand.js';
+export { BrandService } from './services/brands/BrandService.js';
 export type {
   BrandDTO,
   CreateBrandDTO,
@@ -9,18 +9,18 @@ export type {
   BrandCategory,
   QualityStandard,
   BrandStatus
-} from './types/brands/brand.types';
+} from './types/brands/brand.types.js';
 
 // Backend exports for Patients
-export { Patient } from './models/Patient';
-export { PatientsController } from './controllers/patients.controller';
+export { Patient } from './models/Patient.js';
+export { PatientsController } from './controllers/patients.controller.js';
 export type {
   Patient as IPatient,
   PatientFormData,
   PatientAllergy,
   PatientPreference,
   PatientNotification
-} from './types/patient';
+} from './types/patient.js';
 
 // Controllers exports  
 export { 
@@ -29,4 +29,4 @@ export {
   createBrand, 
   updateBrand, 
   deleteBrand 
-} from './controllers/brands.controller';
+} from './controllers/brands.controller.js';

@@ -6,14 +6,14 @@ import {
   createUnit,
   updateUnit,
   deleteUnit
-} from '../controllers/units.controller';
+} from '../controllers/units.controller.js';
 import {
   getCategories,
   getCategoryById,
   createCategory,
   updateCategory,
   deleteCategory
-} from '../controllers/categories.controller';
+} from '../controllers/categories.controller.js';
 import {
   getProducts,
   getProductById,
@@ -23,14 +23,14 @@ import {
   addStock,
   getProductTemplates,
   bulkDeleteProducts
-} from '../controllers/products.controller';
+} from '../controllers/products.controller.js';
 import {
   getRestockSuggestions,
   restockProduct,
   bulkRestockProducts,
   getRestockHistory,
   getRestockBatches
-} from '../controllers/restock.controller';
+} from '../controllers/restock.controller.js';
 
 const router: Router = express.Router();
 

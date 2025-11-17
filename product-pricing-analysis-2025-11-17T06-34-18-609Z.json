@@ -1,0 +1,15 @@
+{
+  "reportDate": "2025-11-17T06:34:18.609Z",
+  "totalActiveProducts": 369,
+  "pricingCompleteness": "95.7",
+  "missingCostPrices": 16,
+  "missingSellingPrices": 3,
+  "invalidPricing": 3,
+  "topSellersWithoutCostPrice": 15,
+  "recommendations": [
+    "Set cost prices for top-selling products first",
+    "Review and fix products with invalid pricing",
+    "Implement validation rules to prevent zero/null cost prices",
+    "Regular pricing audits for margin optimization"
+  ]
+}

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { BlendTemplateService } from '../services/BlendTemplateService.js';
-import type { CreateBlendTemplateData, TemplateFilters } from '../../frontend/src/types/blend.js';
+import type { CreateBlendTemplateData, TemplateFilters } from '../types/blend.js';
 import { authenticateToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = Router();

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Transaction } from '../../models/Transaction.js';
+import { Transaction, ITransaction } from '../../models/Transaction.js';
 
 interface SalesTrendData {
   date: string;
@@ -39,7 +39,7 @@ export class SalesTrendsController {
         createdAt: { $gte: startDate },
         status: 'completed',
         type: { $in: ['sale'] }
-      }).populate('items.product');
+      });
 
       // Generate daily data
       const dailyData = await generateDailyData(transactions, startDate, days);
@@ -67,7 +67,7 @@ export class SalesTrendsController {
   }
 }
 
-async function generateDailyData(transactions: any[], startDate: Date, days: number): Promise<SalesTrendData[]> {
+async function generateDailyData(transactions: ITransaction[], startDate: Date, days: number): Promise<SalesTrendData[]> {
   const dailyMap = new Map<string, SalesTrendData>();
   
   // Initialize all days with zero values
@@ -93,32 +93,29 @@ async function generateDailyData(transactions: any[], startDate: Date, days: num
     if (existing) {
       existing.revenue += transaction.totalAmount || 0;
       existing.transactions += 1;
-      
-      // Calculate cost and profit from items
-      let itemCost = 0;
-      transaction.items.forEach((item: any) => {
-        if (item.product?.costPrice) {
-          itemCost += item.product.costPrice * item.quantity;
-        }
-      });
-      
-      existing.cost += itemCost;
-      existing.profit += (transaction.totalAmount || 0) - itemCost;
+
+      // Note: Cost data not available in transaction items
+      // Transaction items store name, unitPrice, quantity but not costPrice
+      // Cost and profit calculations would require product lookup if needed
+      existing.cost += 0;
+      existing.profit += transaction.totalAmount || 0;
     }
   });
   
   return Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-async function generateCategoryData(transactions: any[]): Promise<CategoryData[]> {
+async function generateCategoryData(transactions: ITransaction[]): Promise<CategoryData[]> {
   const categoryMap = new Map<string, number>();
   let totalRevenue = 0;
-  
+
   transactions.forEach(transaction => {
-    transaction.items.forEach((item: any) => {
-      const category = item.product?.category?.name || item.product?.categoryId || 'Uncategorized';
+    transaction.items.forEach((item) => {
+      // Transaction items don't have category information stored
+      // Using itemType as a category proxy
+      const category = item.itemType || 'product';
       const revenue = item.totalPrice || 0;
-      
+
       categoryMap.set(category, (categoryMap.get(category) || 0) + revenue);
       totalRevenue += revenue;
     });
@@ -134,14 +131,14 @@ async function generateCategoryData(transactions: any[]): Promise<CategoryData[]
     .slice(0, 5);
 }
 
-async function generateTopProductsData(transactions: any[]): Promise<TopProductData[]> {
+async function generateTopProductsData(transactions: ITransaction[]): Promise<TopProductData[]> {
   const productMap = new Map<string, { revenue: number; quantity: number }>();
-  
+
   transactions.forEach(transaction => {
-    transaction.items.forEach((item: any) => {
-      const productName = item.name || item.product?.name || 'Unknown Product';
+    transaction.items.forEach((item) => {
+      const productName = item.name || 'Unknown Product';
       const existing = productMap.get(productName) || { revenue: 0, quantity: 0 };
-      
+
       existing.revenue += item.totalPrice || 0;
       existing.quantity += item.quantity || 0;
       productMap.set(productName, existing);

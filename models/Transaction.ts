@@ -70,6 +70,8 @@ export interface ITransaction extends Document {
   // System fields
   createdBy: string;
   lastModifiedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
 
   // Refund tracking fields
   refundStatus?: 'none' | 'partial' | 'full';

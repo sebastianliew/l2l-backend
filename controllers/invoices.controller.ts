@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import path from 'path';
-import fs from 'fs';
+import { blobStorageService } from '../services/BlobStorageService.js';
 
 // GET /api/invoices/:filename - Download invoice PDF
 export const downloadInvoice = async (req: Request, res: Response): Promise<void> => {
@@ -13,10 +13,18 @@ export const downloadInvoice = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const filePath = path.join(process.cwd(), 'invoices', filename);
+    // Use process.cwd() to get project root (works in both dev and production)
+    // In production on Azure: /home/site/wwwroot/invoices/
+    // In development: C:\Users\...\l2l-backend\invoices\
+    const localFilePath = path.join(process.cwd(), 'invoices', filename);
 
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
+    console.log('[Invoice Download] Attempting to download:', filename);
+
+    // Download from Azure Blob Storage or local storage
+    const { stream, exists } = await blobStorageService.downloadFile(filename, localFilePath);
+
+    if (!exists) {
+      console.log('[Invoice Download] File not found:', filename);
       res.status(404).json({ error: 'Invoice not found' });
       return;
     }
@@ -27,11 +35,15 @@ export const downloadInvoice = async (req: Request, res: Response): Promise<void
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
 
-    // Stream the file
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+    // Explicit CORS headers for file download (helps with browser extensions like IDM)
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
 
-    fileStream.on('error', (error) => {
+    // Stream the file
+    stream.pipe(res);
+
+    stream.on('error', (error) => {
       console.error('[Invoice Download] Error streaming file:', error);
       if (!res.headersSent) {
         res.status(500).json({ error: 'Failed to download invoice' });

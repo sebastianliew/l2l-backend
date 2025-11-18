@@ -374,7 +374,7 @@ productSchema.methods.populateReferences = async function() {
     const { Category } = await import('./Category.js');
     const { Brand } = await import('./Brand.js');
     const { UnitOfMeasurement } = await import('./UnitOfMeasurement.js');
-    const { ContainerType } = await import('@/models/ContainerType');
+    const { ContainerType } = await import('./ContainerType.js');
 
     // Auto-create Category if categoryName is provided
     if (this.categoryName && !this.category) {

@@ -110,7 +110,7 @@ const AddressSchema = new Schema({
 }, { _id: false });
 
 const TransactionSchema = new Schema<ITransaction>({
-  transactionNumber: { type: String, required: true, unique: true },
+  transactionNumber: { type: String, unique: true },
   type: {
     type: String,
     enum: ['sale', 'refund', 'exchange', 'quote'],
@@ -199,7 +199,7 @@ TransactionSchema.index({ createdBy: 1 });
 
 // Pre-save middleware to generate transaction number
 TransactionSchema.pre('save', async function(next) {
-  if (this.isNew && !this.transactionNumber) {
+  if (this.isNew && (!this.transactionNumber || this.transactionNumber.trim() === '')) {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
     const count = await mongoose.model('Transaction').countDocuments({

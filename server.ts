@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load environment variables from backend directory FIRST
-dotenv.config({ path: join(__dirname, '../.env.local') });
+dotenv.config({ path: join(__dirname, '.env.local') });
 
 import express, { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import cors from 'cors';
@@ -33,11 +33,18 @@ import appointmentsRoutes from './routes/appointments.routes.js';
 import patientsRoutes from './routes/patients.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
+import invoicesRoutes from './routes/invoices.routes.js';
+
+// Import services to initialize at startup
+import { emailService } from './services/EmailService.js';
 
 // Debug environment variables
 console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
 console.log('MONGODB_URI loaded:', process.env.MONGODB_URI ? 'Yes' : 'No');
-console.log('Environment file path:', join(__dirname, '../.env.local'));
+console.log('Environment file path:', join(__dirname, '.env.local'));
+
+// Initialize email service (triggers constructor and logs configuration)
+emailService.isEnabled();
 
 // Type for environment variables
 declare global {
@@ -181,6 +188,7 @@ app.use('/api/brands', brandsRoutes);
 app.use('/api/container-types', containerTypesRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/transactions', transactionsRoutes);
+app.use('/api/invoices', invoicesRoutes);
 app.use('/api/blend-templates', blendTemplatesRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/suppliers', suppliersRoutes);
@@ -198,7 +206,7 @@ app.use((_req: Request, res: Response): void => {
 // Custom error interface
 interface CustomError extends Error {
   status?: number;
-  errors?: any;
+  errors?: Record<string, unknown>;
 }
 
 // Global error handler

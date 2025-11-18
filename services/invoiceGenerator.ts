@@ -1,7 +1,6 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
-import QRCode from 'qrcode';
 
 interface InvoiceItem {
   name: string;
@@ -501,7 +500,7 @@ export class InvoiceGenerator {
     // PayNow section with QR code
     const sectionX = boxX + 15;
     const sectionWidth = boxWidth - 30;
-    const payNowHeight = 110;
+    const payNowHeight = 245; // Increased from 110 to accommodate larger centered QR code and text
 
     this.doc
       .rect(sectionX, contentY, sectionWidth, payNowHeight)
@@ -515,55 +514,49 @@ export class InvoiceGenerator {
       .fillColor('#0d6efd')
       .text('Option 1: PayNow', sectionX + 10, payNowY);
 
-    // Generate QR code
+    // Add static PayNow QR code (centered)
+    const qrSize = 120; // Increased from 70 to 120 points
     try {
-      const qrCodeBuffer = await QRCode.toBuffer('202527780C', {
-        errorCorrectionLevel: 'H',
-        type: 'png',
-        width: 80,
-        margin: 1
-      });
+      const qrCodePath = path.join(process.cwd(), 'assets', 'paynow-qr.png');
 
-      // Add QR code to PDF
-      const qrX = sectionX + 10;
-      const qrY = payNowY + 20;
-      this.doc.image(qrCodeBuffer, qrX, qrY, { width: 70, height: 70 });
-
-      // QR code label
-      this.doc
-        .fontSize(7)
-        .font('Helvetica')
-        .fillColor('#000000')
-        .text('Scan to Pay', qrX + 13, qrY + 72, { width: 70, align: 'center' });
+      // Check if QR code file exists
+      if (fs.existsSync(qrCodePath)) {
+        // Center the QR code horizontally
+        const qrX = sectionX + (sectionWidth - qrSize) / 2;
+        const qrY = payNowY + 25;
+        this.doc.image(qrCodePath, qrX, qrY, { width: qrSize, height: qrSize });
+      } else {
+        console.warn('[InvoiceGenerator] PayNow QR code image not found at:', qrCodePath);
+      }
     } catch (error) {
-      console.error('[InvoiceGenerator] Error generating QR code:', error);
+      console.error('[InvoiceGenerator] Error adding QR code:', error);
     }
 
-    // Payment details next to QR code
-    const detailsX = sectionX + 95;
-    const detailsY = payNowY + 20;
+    // Payment details below QR code (centered)
+    const detailsY = payNowY + 25 + qrSize + 10; // Position below QR code
+    const detailsStartX = sectionX + 10;
 
     this.doc
       .fontSize(9)
       .font('Helvetica-Bold')
       .fillColor('#000000')
-      .text('PayNow to our UEN:', detailsX, detailsY);
+      .text('PayNow to our UEN:', detailsStartX, detailsY, { width: sectionWidth - 20, align: 'center' });
 
     this.doc
       .fontSize(10)
       .font('Helvetica-Bold')
-      .text('202527780C', detailsX, detailsY + 15);
+      .text('202527780C', detailsStartX, detailsY + 15, { width: sectionWidth - 20, align: 'center' });
 
     this.doc
       .fontSize(9)
       .font('Helvetica-Bold')
       .fillColor('#000000')
-      .text('Company Name:', detailsX, detailsY + 35);
+      .text('Company Name:', detailsStartX, detailsY + 35, { width: sectionWidth - 20, align: 'center' });
 
     this.doc
       .fontSize(9)
       .font('Helvetica')
-      .text('Leaf to Life Pte Ltd', detailsX, detailsY + 50);
+      .text('Leaf to Life Pte Ltd', detailsStartX, detailsY + 50, { width: sectionWidth - 20, align: 'center' });
 
     contentY += payNowHeight + 10;
 

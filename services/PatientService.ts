@@ -81,21 +81,10 @@ export class PatientService {
   // Create new patient
   async createPatient(patientData: PatientFormData) {
     try {
-      // Check for duplicate email or NRIC
-      const existingPatient = await Patient.findOne({
-        $or: [
-          { email: patientData.email },
-          ...(patientData.nric ? [{ nric: patientData.nric }] : [])
-        ]
-      });
-      
-      if (existingPatient) {
-        throw new Error('Patient with this email or NRIC already exists');
-      }
-      
+      // No uniqueness validation - both email and NRIC can be duplicated
       const patient = new Patient(patientData);
       const savedPatient = await patient.save();
-      
+
       return savedPatient.toJSON();
     } catch (error) {
       console.error('Error in PatientService.createPatient:', error);
@@ -106,21 +95,7 @@ export class PatientService {
   // Update patient
   async updatePatient(id: string, updateData: Partial<PatientFormData>) {
     try {
-      // Check if trying to update email/NRIC to existing value
-      if (updateData.email || updateData.nric) {
-        const existingPatient = await Patient.findOne({
-          _id: { $ne: id },
-          $or: [
-            ...(updateData.email ? [{ email: updateData.email }] : []),
-            ...(updateData.nric ? [{ nric: updateData.nric }] : [])
-          ]
-        });
-        
-        if (existingPatient) {
-          throw new Error('Patient with this email or NRIC already exists');
-        }
-      }
-      
+      // No uniqueness validation - both email and NRIC can be duplicated
       const patient = await Patient.findByIdAndUpdate(
         id,
         updateData,

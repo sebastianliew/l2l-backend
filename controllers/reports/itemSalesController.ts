@@ -1,18 +1,32 @@
 import { Request, Response } from 'express';
 import { PipelineStage } from 'mongoose';
-import { ItemSalesData, ItemSalesResponse, ItemSalesFilters } from '../../types/reports/item-sales.types.js';
+import { ItemSalesData, ItemSalesResponse, ItemSalesFilters, ItemSalesFacetResult } from '../../types/reports/item-sales.types.js';
 import { Transaction } from '../../models/Transaction.js';
-import { Product } from '../../models/Product.js';
 
 export class ItemSalesController {
   static async getItemSalesReport(
-    req: Request<{}, {}, {}, ItemSalesFilters>,
+    req: Request<unknown, ItemSalesResponse, unknown, ItemSalesFilters>,
     res: Response<ItemSalesResponse>
   ): Promise<void> {
     try {
-      const { startDate, endDate, productId, categoryId, minSales, sortBy = 'total_sales', sortOrder = 'desc' } = req.query;
+      const {
+        startDate,
+        endDate,
+        productId,
+        categoryId,
+        minSales,
+        sortBy = 'total_sales',
+        sortOrder = 'desc',
+        page = '1',
+        limit = '10'
+      } = req.query;
 
-      // Build match conditions with proper typing
+      // Parse and validate pagination parameters
+      const pageNum = Math.max(1, parseInt(page) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10)); // Cap at 100 items per page
+      const skip = (pageNum - 1) * limitNum;
+
+      // Build initial match conditions for transactions
       const matchConditions: Record<string, unknown> = {
         type: 'sale',
         status: 'completed'
@@ -21,47 +35,46 @@ export class ItemSalesController {
       // Add date filters if provided
       if (startDate || endDate) {
         matchConditions.createdAt = {} as Record<string, Date>;
-        
+
         if (startDate) {
           (matchConditions.createdAt as Record<string, Date>).$gte = new Date(startDate);
         }
-        
+
         if (endDate) {
           (matchConditions.createdAt as Record<string, Date>).$lte = new Date(endDate);
         }
       }
 
-      // Build aggregation pipeline to get sales data first (without cost calculation)
+      // Build optimized aggregation pipeline
       const pipeline: PipelineStage[] = [
-        // Match only completed sales transactions
+        // Stage 1: Match transactions by date/status BEFORE unwinding (more efficient)
         {
           $match: matchConditions
         },
-        // Unwind the items array to work with individual items
+        // Stage 2: Unwind the items array
         {
           $unwind: '$items'
         }
       ];
 
-      // Add product filter if specified
+      // Stage 3: Add product/category filters on unwound items
+      const itemMatchConditions: Record<string, unknown> = {};
+
       if (productId) {
-        pipeline.push({
-          $match: {
-            'items.productId': productId
-          }
-        });
+        itemMatchConditions['items.productId'] = productId;
       }
 
-      // Add category filter if specified
       if (categoryId) {
+        itemMatchConditions['items.categoryId'] = categoryId;
+      }
+
+      if (Object.keys(itemMatchConditions).length > 0) {
         pipeline.push({
-          $match: {
-            'items.categoryId': categoryId
-          }
+          $match: itemMatchConditions
         });
       }
 
-      // Group by product to calculate metrics (without cost for now)
+      // Stage 4: Group by product to calculate metrics
       pipeline.push({
         $group: {
           _id: '$items.productId',
@@ -83,78 +96,138 @@ export class ItemSalesController {
         }
       });
 
-      // Get initial results without cost data
-      const salesResults = await Transaction.aggregate(pipeline);
-
-      // Get all unique product IDs from the results
-      const productIds = salesResults
-        .map(result => result._id)
-        .filter(id => typeof id === 'string' && id.length === 24 && /^[a-fA-F0-9]{24}$/.test(id));
-
-      // Fetch actual cost prices for valid product IDs
-      const products = await Product.find(
-        { _id: { $in: productIds } },
-        { _id: 1, costPrice: 1 }
-      ).lean();
-
-      // Create a map of productId -> costPrice
-      const costPriceMap = new Map<string, number>();
-      products.forEach(product => {
-        costPriceMap.set((product._id as any).toString(), product.costPrice || 0);
-      });
-
-      // Calculate final results with actual cost data
-      const results: ItemSalesData[] = salesResults.map(item => {
-        const productId = item._id;
-        const costPrice = costPriceMap.get(productId) || 0;
-        const total_cost = item.quantity_sold * costPrice;
-        
-        return {
-          item_name: item.item_name,
-          total_sales: item.total_sales,
-          total_cost: total_cost,
-          total_discount: item.total_discount,
-          total_tax: item.total_tax,
-          quantity_sold: item.quantity_sold,
-          base_unit: item.base_unit,
-          average_list_price: item.average_list_price,
-          average_cost_price: costPrice,
-          last_sale_date: item.last_sale_date,
-          margin: item.total_sales > 0 ? (item.total_sales - total_cost) / item.total_sales : 0
-        };
-      });
-
-      // Apply minimum sales filter if specified
-      let filteredResults = results;
-      if (minSales && !isNaN(Number(minSales))) {
-        filteredResults = results.filter(item => item.total_sales >= Number(minSales));
-      }
-
-      // Sort results
-      filteredResults.sort((a, b) => {
-        const aValue = a[sortBy as keyof ItemSalesData] as number;
-        const bValue = b[sortBy as keyof ItemSalesData] as number;
-        
-        if (sortOrder === 'asc') {
-          return aValue - bValue;
-        } else {
-          return bValue - aValue;
+      // Stage 5: Lookup Product collection to get costPrice (avoids N+1 query)
+      pipeline.push({
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'productData'
         }
       });
 
+      // Stage 6: Calculate total_cost and margin in pipeline
+      pipeline.push({
+        $addFields: {
+          average_cost_price: {
+            $ifNull: [{ $arrayElemAt: ['$productData.costPrice', 0] }, 0]
+          }
+        }
+      });
+
+      pipeline.push({
+        $project: {
+          item_name: 1,
+          total_sales: 1,
+          total_cost: { $multiply: ['$quantity_sold', '$average_cost_price'] },
+          total_discount: 1,
+          total_tax: 1,
+          quantity_sold: 1,
+          base_unit: 1,
+          average_list_price: 1,
+          average_cost_price: 1,
+          last_sale_date: 1,
+          margin: {
+            $cond: {
+              if: { $gt: ['$total_sales', 0] },
+              then: {
+                $divide: [
+                  { $subtract: ['$total_sales', { $multiply: ['$quantity_sold', '$average_cost_price'] }] },
+                  '$total_sales'
+                ]
+              },
+              else: 0
+            }
+          }
+        }
+      });
+
+      // Stage 7: Apply minSales filter in pipeline (not in JavaScript)
+      if (minSales && !isNaN(Number(minSales))) {
+        pipeline.push({
+          $match: {
+            total_sales: { $gte: Number(minSales) }
+          }
+        });
+      }
+
+      // Stage 8: Sort in pipeline
+      const sortField = sortBy as string;
+      pipeline.push({
+        $sort: {
+          [sortField]: sortOrder === 'asc' ? 1 : -1
+        }
+      });
+
+      // Stage 9: Use $facet to get paginated results, total count, AND summary totals in ONE query
+      pipeline.push({
+        $facet: {
+          paginatedResults: [
+            { $skip: skip },
+            { $limit: limitNum }
+          ],
+          totalCount: [
+            { $count: 'count' }
+          ],
+          summary: [
+            {
+              $group: {
+                _id: null,
+                totalRevenue: { $sum: '$total_sales' },
+                totalCost: { $sum: '$total_cost' },
+                totalProfit: { $sum: { $subtract: ['$total_sales', '$total_cost'] } }
+              }
+            }
+          ]
+        }
+      });
+
+      // Execute the optimized pipeline
+      const results = await Transaction.aggregate<ItemSalesFacetResult>(pipeline);
+      const result = results[0];
+
+      // Extract results and total count
+      const paginatedData: ItemSalesData[] = result.paginatedResults.map((item) => ({
+        item_name: item.item_name,
+        total_sales: item.total_sales,
+        total_cost: item.total_cost,
+        total_discount: item.total_discount,
+        total_tax: item.total_tax,
+        quantity_sold: item.quantity_sold,
+        base_unit: item.base_unit,
+        average_list_price: item.average_list_price,
+        average_cost_price: item.average_cost_price,
+        last_sale_date: item.last_sale_date instanceof Date
+          ? item.last_sale_date.toISOString()
+          : item.last_sale_date,
+        margin: item.margin
+      }));
+
+      const totalItems = result.totalCount[0]?.count || 0;
+      const totalPages = Math.ceil(totalItems / limitNum);
+      const summary = result.summary[0] || { totalRevenue: 0, totalCost: 0, totalProfit: 0 };
+
       res.json({
-        data: filteredResults,
+        data: paginatedData,
         success: true,
         metadata: {
-          totalItems: filteredResults.length,
+          totalItems,
+          totalPages,
+          currentPage: pageNum,
+          pageSize: limitNum,
+          summary: {
+            totalRevenue: summary.totalRevenue,
+            totalCost: summary.totalCost,
+            totalProfit: summary.totalProfit
+          },
           generatedAt: new Date().toISOString()
         }
       });
     } catch (error) {
       console.error('Error fetching item sales data:', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      
+
       res.status(500).json({
         data: [],
         success: false,

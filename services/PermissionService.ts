@@ -1,5 +1,5 @@
-import { User } from '@/backend/models/User';
-import connectDB from '@/backend/lib/mongodb';
+import { User } from '@models/User';
+import connectDB from '@lib/mongodb';
 
 type PermissionCategory = {
   [key: string]: boolean | number;
@@ -182,9 +182,9 @@ export class PermissionService {
           const categoryPerms = defaultPermissions[category as keyof typeof defaultPermissions];
           if (categoryPerms) {
             Object.keys(categoryPerms).forEach(permission => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (categoryPerms as any)[permission] = permission.includes('max') ? 100 : 
-                                                   permission.includes('Amount') ? 999999 : true;
+              const perms = categoryPerms as Record<string, boolean | number>;
+              perms[permission] = permission.includes('max') ? 100 :
+                                  permission.includes('Amount') ? 999999 : true;
             });
           }
         });

@@ -2,16 +2,16 @@ import { BlendTemplate } from '../models/BlendTemplate.js';
 import { Product } from '../models/Product.js';
 import { UnitOfMeasurement } from '../models/UnitOfMeasurement.js';
 import { connectDB } from '../lib/mongoose.js';
-import type { 
+import type {
   BlendTemplate as IBlendTemplate,
-  CreateBlendTemplateData, 
-  UpdateBlendTemplateData, 
+  CreateBlendTemplateData,
+  UpdateBlendTemplateData,
   TemplateFilters,
   ValidationResult,
   ValidationError,
   ValidationWarning,
   BlendIngredient
-} from '../../frontend/src/types/blend.js';
+} from '../types/blend.js';
 
 export class BlendTemplateService {
   

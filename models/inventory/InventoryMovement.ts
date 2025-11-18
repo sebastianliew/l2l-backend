@@ -1,5 +1,5 @@
 import { Schema, model, Document } from 'mongoose';
-import { UnitOfMeasurement } from '@/backend/models/UnitOfMeasurement';
+import { UnitOfMeasurement } from '@models/UnitOfMeasurement';
 import mongoose from 'mongoose';
 
 export interface IInventoryMovement extends Document {

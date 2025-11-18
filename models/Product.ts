@@ -371,10 +371,10 @@ productSchema.methods.needsUrgentRestock = function(): boolean {
 // Method to auto-create reference data and populate ObjectIds
 productSchema.methods.populateReferences = async function() {
   try {
-    const { Category } = await import('@/backend/models/Category');
-    const { Brand } = await import('@/backend/models/Brand');
-    const { UnitOfMeasurement } = await import('@/backend/models/UnitOfMeasurement');
-    const { ContainerType } = await import('@/models/ContainerType');
+    const { Category } = await import('@models/Category');
+    const { Brand } = await import('@models/Brand');
+    const { UnitOfMeasurement } = await import('@models/UnitOfMeasurement');
+    const { ContainerType } = await import('@models/ContainerType');
 
     // Auto-create Category if categoryName is provided
     if (this.categoryName && !this.category) {

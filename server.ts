@@ -33,11 +33,18 @@ import appointmentsRoutes from './routes/appointments.routes';
 import patientsRoutes from './routes/patients.routes';
 import reportsRoutes from './routes/reports.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import invoicesRoutes from './routes/invoices.routes';
+
+// Import services to initialize at startup
+import { emailService } from './services/EmailService.js';
 
 // Debug environment variables
 console.log('JWT_SECRET loaded:', process.env.JWT_SECRET ? 'Yes' : 'No');
 console.log('MONGODB_URI loaded:', process.env.MONGODB_URI ? 'Yes' : 'No');
 console.log('Environment file path:', join(__dirname, '.env.local'));
+
+// Initialize email service (triggers constructor and logs configuration)
+emailService.isEnabled();
 
 // Type for environment variables
 declare global {
@@ -174,6 +181,7 @@ app.use('/api/brands', brandsRoutes);
 app.use('/api/container-types', containerTypesRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/transactions', transactionsRoutes);
+app.use('/api/invoices', invoicesRoutes);
 app.use('/api/blend-templates', blendTemplatesRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/suppliers', suppliersRoutes);
@@ -191,7 +199,7 @@ app.use((_req: Request, res: Response): void => {
 // Custom error interface
 interface CustomError extends Error {
   status?: number;
-  errors?: any;
+  errors?: Record<string, unknown>;
 }
 
 // Global error handler

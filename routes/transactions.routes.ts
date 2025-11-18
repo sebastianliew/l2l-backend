@@ -5,7 +5,9 @@ import {
   getTransactionById,
   createTransaction,
   updateTransaction,
-  deleteTransaction
+  deleteTransaction,
+  generateTransactionInvoice,
+  sendInvoiceEmail
 } from '../controllers/transactions.controller.js';
 
 const router = express.Router();
@@ -21,6 +23,12 @@ router.get('/:id', getTransactionById);
 
 // POST /api/transactions - Create new transaction
 router.post('/', createTransaction);
+
+// POST /api/transactions/:id/invoice - Generate invoice for transaction
+router.post('/:id/invoice', generateTransactionInvoice);
+
+// POST /api/transactions/:id/send-invoice-email - Send or resend invoice email
+router.post('/:id/send-invoice-email', sendInvoiceEmail);
 
 // PUT /api/transactions/:id - Update transaction
 router.put('/:id', updateTransaction);

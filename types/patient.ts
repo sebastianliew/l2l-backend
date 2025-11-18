@@ -14,7 +14,7 @@ export interface Patient {
   occupation?: string
 
   // Contact Information
-  email: string
+  email?: string
   phone: string
   altPhone?: string
   fax?: string

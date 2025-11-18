@@ -153,7 +153,7 @@ addEnrichmentFields(patientSchema);
 // Add indexes for better query performance
 patientSchema.index({ lastName: 1, firstName: 1 });
 patientSchema.index({ status: 1 });
-patientSchema.index({ nric: 1 }, { unique: true, sparse: true });
+patientSchema.index({ nric: 1 }); // Non-unique index for search performance only
 patientSchema.index({ legacyCustomerNo: 1 }, { unique: true, sparse: true });
 patientSchema.index({ 'migrationInfo.sourceSystem': 1 });
 

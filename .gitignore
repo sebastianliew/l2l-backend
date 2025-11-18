@@ -6,7 +6,8 @@
 # Production
 /build
 /dist
-/invoices
+/invoices/*.pdf
+!/invoices/README.txt
 
 # Environment variables
 .env*

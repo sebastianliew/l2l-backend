@@ -2,14 +2,10 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { Transaction } from '../models/Transaction.js';
 import { InvoiceGenerator } from '../services/invoiceGenerator.js';
 import { emailService } from '../services/EmailService.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { blobStorageService } from '../services/BlobStorageService.js';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -117,7 +113,8 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
       const invoiceNumber = savedTransaction.transactionNumber;
 
       // Ensure invoices directory exists
-      const invoicesDir = path.join(__dirname, '..', 'invoices');
+      // Use process.cwd() for consistent path in both dev and production
+      const invoicesDir = path.join(process.cwd(), 'invoices');
       if (!fs.existsSync(invoicesDir)) {
         fs.mkdirSync(invoicesDir, { recursive: true });
       }
@@ -162,6 +159,9 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
 
       const generator = new InvoiceGenerator();
       await generator.generateInvoice(invoiceData, invoiceFilePath);
+
+      // Upload to Azure Blob Storage (or keep local if not configured)
+      await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
       // Update transaction with invoice info
       savedTransaction.invoiceGenerated = true;
@@ -293,7 +293,8 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
     // Check if invoice already exists - if so, delete it to allow regeneration
     if (transaction.invoiceGenerated && transaction.invoicePath) {
       console.log('[Invoice] Invoice already exists for transaction:', id);
-      const invoiceFilePath = path.join(__dirname, '..', transaction.invoicePath);
+      // Use process.cwd() for consistent path resolution
+      const invoiceFilePath = path.join(process.cwd(), transaction.invoicePath);
 
       // Delete existing file if it exists to allow regeneration with updated data
       if (fs.existsSync(invoiceFilePath)) {
@@ -306,7 +307,8 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
     const invoiceNumber = transaction.transactionNumber;
 
     // Ensure invoices directory exists
-    const invoicesDir = path.join(__dirname, '..', 'invoices');
+    // Use process.cwd() for consistent path in both dev and production
+    const invoicesDir = path.join(process.cwd(), 'invoices');
     if (!fs.existsSync(invoicesDir)) {
       console.log('[Invoice] Creating invoices directory:', invoicesDir);
       fs.mkdirSync(invoicesDir, { recursive: true });
@@ -354,6 +356,9 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
 
     const generator = new InvoiceGenerator();
     await generator.generateInvoice(invoiceData, invoiceFilePath);
+
+    // Upload to Azure Blob Storage (or keep local if not configured)
+    await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
     // Update transaction with invoice info
     transaction.invoiceGenerated = true;
@@ -457,7 +462,8 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
 
     // Delete existing invoice if it exists
     if (transaction.invoiceGenerated && transaction.invoicePath) {
-      const invoiceFilePath = path.join(__dirname, '..', transaction.invoicePath);
+      // Use process.cwd() for consistent path resolution
+      const invoiceFilePath = path.join(process.cwd(), transaction.invoicePath);
       if (fs.existsSync(invoiceFilePath)) {
         console.log('[Email] Deleting existing invoice:', invoiceFilePath);
         fs.unlinkSync(invoiceFilePath);
@@ -468,7 +474,8 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
     const invoiceNumber = transaction.transactionNumber;
 
     // Ensure invoices directory exists
-    const invoicesDir = path.join(__dirname, '..', 'invoices');
+    // Use process.cwd() for consistent path in both dev and production
+    const invoicesDir = path.join(process.cwd(), 'invoices');
     if (!fs.existsSync(invoicesDir)) {
       fs.mkdirSync(invoicesDir, { recursive: true });
     }
@@ -515,6 +522,9 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
 
     const generator = new InvoiceGenerator();
     await generator.generateInvoice(invoiceData, invoiceFilePath);
+
+    // Upload to Azure Blob Storage (or keep local if not configured)
+    await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
     // Update transaction with invoice info
     transaction.invoiceGenerated = true;

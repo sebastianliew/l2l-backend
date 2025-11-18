@@ -1,5 +1,5 @@
 import { Schema, model, Document } from 'mongoose';
-import { UnitOfMeasurement } from '@models/UnitOfMeasurement';
+import { UnitOfMeasurement } from '../UnitOfMeasurement.js';
 import mongoose from 'mongoose';
 
 export interface IInventoryMovement extends Document {

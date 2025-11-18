@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { UnitOfMeasurement, IUnitOfMeasurement } from '../models/UnitOfMeasurement';
-import { IUser } from '../models/User';
+import { UnitOfMeasurement, IUnitOfMeasurement } from '../models/UnitOfMeasurement.js';
+import { IUser } from '../models/User.js';
 
 // Request interfaces
 interface UnitQueryParams {

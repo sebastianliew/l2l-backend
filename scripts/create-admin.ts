@@ -3,7 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { User } from '../models/User';
+import { User } from '../models/User.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

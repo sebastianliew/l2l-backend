@@ -1,6 +1,6 @@
-import { Refund, IRefund } from '../models/Refund';
-import { Transaction } from '../models/Transaction';
-import { Product } from '../models/Product';
+import { Refund, IRefund } from '../models/Refund.js';
+import { Transaction } from '../models/Transaction.js';
+import { Product } from '../models/Product.js';
 
 interface RefundFilters {
   status?: string;

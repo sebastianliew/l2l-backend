@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Transaction } from '../../models/Transaction';
+import { Transaction } from '../../models/Transaction.js';
 
 interface SalesTrendData {
   date: string;

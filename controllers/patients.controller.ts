@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { PatientService } from '../services/PatientService';
-import type { PatientFormData } from '../types/patient';
+import { PatientService } from '../services/PatientService.js';
+import type { PatientFormData } from '../types/patient.js';
 
 export class PatientsController {
   private patientService: PatientService;

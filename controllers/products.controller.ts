@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Product, IProduct } from '../models/Product';
-import { Category } from '../models/Category';
-import { Brand } from '../models/Brand';
-import { UnitOfMeasurement } from '../models/UnitOfMeasurement';
-// import { ContainerType } from '../../models/ContainerType';
-// import { AdminActivityLog } from '../models/AdminActivityLog';
-import { IUser } from '../models/User';
+import { Product, IProduct } from '../models/Product.js';
+import { Category } from '../models/Category.js';
+import { Brand } from '../models/Brand.js';
+import { UnitOfMeasurement } from '../models/UnitOfMeasurement.js';
+// import { ContainerType } from '../../models/ContainerType.js';
+// import { AdminActivityLog } from '../models/AdminActivityLog.js';
+import { IUser } from '../models/User.js';
 
 // Request interfaces
 interface ProductQueryParams {

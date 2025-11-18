@@ -1,5 +1,5 @@
 import dbConnect from '@/lib/mongoose';
-import { BlendTemplate } from '../../models/BlendTemplate';
+import { BlendTemplate } from '../../models/BlendTemplate.js';
 
 /**
  * Tracks usage statistics for blend templates

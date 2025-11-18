@@ -20,20 +20,20 @@ import { createServer } from 'http';
 import { AddressInfo } from 'net';
 
 // Import routes AFTER loading environment variables
-import authRoutes from './routes/auth.routes';
-import brandsRoutes from './routes/brands.routes';
-import containerTypesRoutes from './routes/container-types.routes';
-import refundsRoutes from './routes/refunds.routes';
-import transactionsRoutes from './routes/transactions.routes';
-import blendTemplatesRoutes from './routes/blend-templates.routes';
-import inventoryRoutes from './routes/inventory.routes';
-import suppliersRoutes from './routes/suppliers.routes';
-import bundlesRoutes from './routes/bundles.routes';
-import appointmentsRoutes from './routes/appointments.routes';
-import patientsRoutes from './routes/patients.routes';
-import reportsRoutes from './routes/reports.routes';
-import dashboardRoutes from './routes/dashboard.routes';
-import invoicesRoutes from './routes/invoices.routes';
+import authRoutes from './routes/auth.routes.js';
+import brandsRoutes from './routes/brands.routes.js';
+import containerTypesRoutes from './routes/container-types.routes.js';
+import refundsRoutes from './routes/refunds.routes.js';
+import transactionsRoutes from './routes/transactions.routes.js';
+import blendTemplatesRoutes from './routes/blend-templates.routes.js';
+import inventoryRoutes from './routes/inventory.routes.js';
+import suppliersRoutes from './routes/suppliers.routes.js';
+import bundlesRoutes from './routes/bundles.routes.js';
+import appointmentsRoutes from './routes/appointments.routes.js';
+import patientsRoutes from './routes/patients.routes.js';
+import reportsRoutes from './routes/reports.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import invoicesRoutes from './routes/invoices.routes.js';
 
 // Import services to initialize at startup
 import { emailService } from './services/EmailService.js';
@@ -165,6 +165,13 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
+// Root endpoint
+app.get('/', (_req: Request, res: Response): void => {
+  res.status(200).json({
+    message: 'API and backend server is running'
+  });
+});
+
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response): void => {
   res.status(200).json({ 
@@ -243,9 +250,23 @@ server.listen(PORT, () => {
   const address = server.address() as AddressInfo;
   const actualPort = address.port;
   
+  // JSON status message for deployment verification
+  const serverStatus = {
+    status: 'SUCCESS',
+    message: 'L2L Backend API Server started successfully',
+    port: actualPort,
+    environment: process.env.NODE_ENV || 'development',
+    baseUrl: `http://localhost:${actualPort}/api`,
+    healthCheck: `http://localhost:${actualPort}/health`,
+    timestamp: new Date().toISOString()
+  };
+  
+  console.log(JSON.stringify(serverStatus, null, 2));
+  
   console.log(`🚀 Backend server is running on http://localhost:${actualPort}`);
   console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 API Base URL: http://localhost:${actualPort}/api`);
+  console.log(`❤️  Health Check: http://localhost:${actualPort}/health`);
   
   // If port is different from requested, suggest updating frontend config
   if (actualPort !== PORT) {

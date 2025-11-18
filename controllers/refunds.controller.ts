@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { RefundService } from '../services/RefundService';
-import { Refund } from '../models/Refund';
+import { RefundService } from '../services/RefundService.js';
+import { Refund } from '../models/Refund.js';
 
 // GET /api/refunds - Get all refunds with optional filters
 export const getRefunds = async (req: Request, res: Response): Promise<void> => {

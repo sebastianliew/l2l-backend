@@ -1,8 +1,8 @@
 import express, { Router } from 'express';
-import { ItemSalesController } from '../controllers/reports/itemSalesController';
-import { ReportsController } from '../controllers/reports.controller';
-import { SalesTrendsController } from '../controllers/reports/salesTrendsController';
-import { authenticateToken } from '../middlewares/auth.middleware';
+import { ItemSalesController } from '../controllers/reports/itemSalesController.js';
+import { ReportsController } from '../controllers/reports.controller.js';
+import { SalesTrendsController } from '../controllers/reports/salesTrendsController.js';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
 
 const router: Router = express.Router();
 

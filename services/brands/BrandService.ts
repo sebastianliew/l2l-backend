@@ -1,11 +1,11 @@
-import { Brand, IBrand } from '../../models/Brand';
+import { Brand, IBrand } from '../../models/Brand.js';
 import type { 
   BrandDTO, 
   CreateBrandDTO, 
   UpdateBrandDTO, 
   BrandFilters 
 } from '../../types/brands/brand.types';
-import connectDB from '../../lib/mongodb';
+import connectDB from '../../lib/mongodb.js';
 import mongoose from 'mongoose';
 
 export class BrandService {

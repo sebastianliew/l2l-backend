@@ -1,12 +1,12 @@
 import express, { Router } from 'express';
-import { authenticateToken, requireRole } from '../middlewares/auth.middleware';
+import { authenticateToken, requireRole } from '../middlewares/auth.middleware.js';
 import {
   getBrands,
   getBrandById,
   createBrand,
   updateBrand,
   deleteBrand
-} from '../controllers/brands.controller';
+} from '../controllers/brands.controller.js';
 
 const router: Router = express.Router();
 

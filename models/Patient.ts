@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { addEnrichmentFields } from './PatientEnrichment';
+import { addEnrichmentFields } from './PatientEnrichment.js';
 
 // Appointment subdocument schema
 const appointmentSchema = new mongoose.Schema({

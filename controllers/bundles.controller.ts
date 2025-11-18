@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { Bundle, IBundle } from '../models/Bundle';
-import { Product } from '../models/Product';
-import { BlendTemplate } from '../models/BlendTemplate';
-import { IUser } from '../models/User';
+import { Bundle, IBundle } from '../models/Bundle.js';
+import { Product } from '../models/Product.js';
+import { BlendTemplate } from '../models/BlendTemplate.js';
+import { IUser } from '../models/User.js';
 
 // Request interfaces
 interface BundleQueryParams {

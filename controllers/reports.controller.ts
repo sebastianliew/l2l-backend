@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { RevenueAnalysisService } from '../services/RevenueAnalysisService'
+import { RevenueAnalysisService } from '../services/RevenueAnalysisService.js'
 
 export class ReportsController {
   static async getRevenueAnalysis(req: Request, res: Response) {

@@ -2,6 +2,7 @@ import express, { Router } from 'express';
 import { ItemSalesController } from '../controllers/reports/itemSalesController.js';
 import { ReportsController } from '../controllers/reports.controller.js';
 import { SalesTrendsController } from '../controllers/reports/salesTrendsController.js';
+import { CustomerValueController } from '../controllers/reports/customerValueController.js';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 
 const router: Router = express.Router();
@@ -17,6 +18,9 @@ router.get('/revenue-analysis', ReportsController.getRevenueAnalysis);
 
 // Sales Trends endpoint
 router.get('/sales-trends', SalesTrendsController.getSalesTrends);
+
+// Customer Value Report endpoint
+router.get('/customer-value', CustomerValueController.getCustomerValueReport);
 
 // TODO: Add other report endpoints here
 // router.get('/inventory-analysis', InventoryAnalysisController.getInventoryReport);

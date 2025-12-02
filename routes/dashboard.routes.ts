@@ -1,7 +1,7 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, type IRouter } from 'express';
 import { DashboardStatsService } from '../services/DashboardStatsService.js';
 
-const router = express.Router();
+const router: IRouter = express.Router();
 const dashboardStatsService = new DashboardStatsService();
 
 // GET /api/dashboard/stats - Get dashboard statistics

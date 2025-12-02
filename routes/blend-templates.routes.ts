@@ -1,9 +1,9 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, type IRouter } from 'express';
 import { BlendTemplateService } from '../services/BlendTemplateService.js';
 import type { CreateBlendTemplateData, TemplateFilters } from '../types/blend.js';
 import { authenticateToken, requireRole } from '../middlewares/auth.middleware.js';
 
-const router = Router();
+const router: IRouter = Router();
 const blendTemplateService = new BlendTemplateService();
 
 // GET /api/blend-templates - Get all blend templates with optional filters (public access)

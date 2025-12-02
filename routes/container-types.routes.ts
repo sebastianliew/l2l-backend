@@ -1,8 +1,7 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, type IRouter } from 'express';
 import { ContainerType } from '../models/ContainerType.js';
-import { authenticateToken } from '../middlewares/auth.middleware.js';
 
-const router = express.Router();
+const router: IRouter = express.Router();
 
 // Apply authentication to all routes
 // TODO: Re-enable auth after frontend auth is properly configured

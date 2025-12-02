@@ -1,7 +1,7 @@
-import express from 'express';
+import express, { type IRouter } from 'express';
 import { PatientsController } from '../controllers/patients.controller.js';
 
-const router = express.Router();
+const router: IRouter = express.Router();
 const patientsController = new PatientsController();
 
 // GET /api/patients - Get all patients with search and pagination

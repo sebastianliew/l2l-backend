@@ -6,7 +6,8 @@
       "Bash(git merge:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git clean:*)"
+      "Bash(git clean:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

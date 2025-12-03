@@ -6,7 +6,7 @@ export interface Patient {
   middleName?: string
   lastName: string
   name?: string // Combined name for backward compatibility
-  nric?: string
+  nric: string
   dateOfBirth: string
   gender: "male" | "female" | "other" | "prefer-not-to-say"
   bloodType?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-"

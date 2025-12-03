@@ -5,10 +5,7 @@ import Appointment from '../models/Appointment.js';
 // Get all appointments for dashboard
 export const getAppointments = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    console.log('[Backend] GET /dashboard/appointments - Starting...');
-    console.log('[Backend] User:', req.user);
     const { date, status } = req.query;
-    console.log('[Backend] Query params:', { date, status });
     
     interface AppointmentQuery {
       preferredDate?: {
@@ -36,11 +33,9 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response):
       query.status = status as string;
     }
     
-    console.log('[Backend] MongoDB query:', query);
     const appointments = await Appointment.find(query)
       .sort({ preferredDate: -1 })
       .lean();
-    console.log('[Backend] Found', appointments.length, 'appointments');
     
     // Transform to match frontend interface
     const transformedAppointments = appointments.map((apt: any) => ({

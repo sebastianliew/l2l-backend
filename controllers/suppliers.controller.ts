@@ -163,10 +163,6 @@ export const createSupplier = async (req: AuthenticatedRequest, res: Response): 
     
     await supplier.save();
     
-    // Log activity if user is available
-    if (req.user) {
-      console.log(`Supplier created by ${req.user.email}: ${supplier.name}`);
-    }
     
     // Transform supplier to include id field and remove _id
     const transformedSupplier = {

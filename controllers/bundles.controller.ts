@@ -266,8 +266,6 @@ export const createBundle = async (
     // Populate for response - skip createdBy populate to avoid ObjectId casting errors
     await bundle.populate('bundleProducts.productId', 'name sku availableStock');
     
-    console.log(`Bundle created by ${authReq.user.email}: ${bundle.name}`);
-    
     res.status(201).json(bundle);
   } catch (error) {
     console.error('Error creating bundle:', error);

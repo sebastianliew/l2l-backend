@@ -24,9 +24,6 @@ export const authenticateToken = async (
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
     
-    console.log('Auth middleware - Authorization header:', authHeader);
-    console.log('Auth middleware - Token extracted:', token ? 'Yes' : 'No');
-    
     if (!token) {
       res.status(401).json({ error: 'Access token required' });
       return;

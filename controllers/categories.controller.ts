@@ -167,12 +167,6 @@ export const createCategory = async (
     
     await category.save();
     
-    // Log activity if user is available
-    const authReq = req as AuthenticatedRequest;
-    if (authReq.user) {
-      console.log(`Category created by ${authReq.user.email}: ${category.name}`);
-    }
-    
     res.status(201).json(category);
   } catch (error) {
     console.error('Error creating category:', error);

@@ -182,10 +182,6 @@ export const createBrand = async (req: AuthenticatedRequest, res: Response): Pro
     
     await brand.save();
     
-    // Log activity if user is available
-    if (req.user) {
-      console.log(`Brand created by ${req.user.email}: ${brand.name}`);
-    }
     
     res.status(201).json(brand);
   } catch (error) {

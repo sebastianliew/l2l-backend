@@ -31,31 +31,33 @@ export class DashboardAppointmentService {
   }
 
   // Transform MongoDB appointment to DashboardAppointment interface
-  private transformToDashboardAppointment(apt: any): DashboardAppointment {
+  private transformToDashboardAppointment(apt: Record<string, unknown> & {
+    _id: unknown;
+  }): DashboardAppointment {
     return {
       id: (apt._id as Types.ObjectId).toString(),
-      date: apt.preferredDate,
-      startTime: new Date(apt.preferredDate).toLocaleTimeString('en-US', { 
+      date: apt.preferredDate as Date,
+      startTime: new Date(apt.preferredDate as Date).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
         hour12: false 
       }),
-      endTime: new Date(new Date(apt.preferredDate).getTime() + 60 * 60 * 1000).toLocaleTimeString('en-US', { 
+      endTime: new Date(new Date(apt.preferredDate as Date).getTime() + 60 * 60 * 1000).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
         hour12: false 
       }), // Assuming 1 hour appointments
       status: apt.status as AppointmentStatus,
-      createdAt: apt.createdAt,
-      updatedAt: apt.updatedAt,
-      patientId: apt.email,
-      service: apt.appointmentType,
-      notes: apt.notes || `Health Concerns: ${apt.healthConcerns || 'None'}\nAllergies: ${apt.allergies || 'None'}\nMedications: ${apt.medications || 'None'}`,
+      createdAt: new Date(apt.createdAt as string),
+      updatedAt: new Date(apt.updatedAt as string),
+      patientId: apt.email as string,
+      service: apt.appointmentType as string,
+      notes: (apt.notes as string) || `Health Concerns: ${(apt.healthConcerns as string) || 'None'}\nAllergies: ${(apt.allergies as string) || 'None'}\nMedications: ${(apt.medications as string) || 'None'}`,
       history: [{
         id: '1',
         appointmentId: (apt._id as Types.ObjectId).toString(),
         status: apt.status as AppointmentStatus,
-        changedAt: apt.updatedAt,
+        changedAt: new Date(apt.updatedAt as string),
         changedBy: 'system',
         notes: apt.source ? `Imported from ${apt.source}` : undefined
       }]
@@ -89,7 +91,7 @@ export class DashboardAppointmentService {
       .sort({ preferredDate: -1 })
       .lean();
     
-    return appointments.map(apt => this.transformToDashboardAppointment(apt));
+    return appointments.map(apt => this.transformToDashboardAppointment(apt as Record<string, unknown> & { _id: unknown }));
   }
 
   async getAppointmentById(id: string): Promise<DashboardAppointment | null> {
@@ -100,7 +102,7 @@ export class DashboardAppointmentService {
       return null;
     }
     
-    return this.transformToDashboardAppointment(appointment);
+    return this.transformToDashboardAppointment(appointment as Record<string, unknown> & { _id: unknown });
   }
 
   async deleteAppointment(id: string): Promise<DashboardAppointment | null> {
@@ -111,7 +113,7 @@ export class DashboardAppointmentService {
       return null;
     }
     
-    return this.transformToDashboardAppointment(result);
+    return this.transformToDashboardAppointment(result as Record<string, unknown> & { _id: unknown });
   }
 
   async bulkDeleteAppointments(ids: string[]): Promise<{ deletedCount: number }> {

@@ -5,7 +5,18 @@ export class PatientService {
   // Get all patients with search and pagination
   async getAllPatients(searchTerm?: string, page: number = 1, limit: number = 25, sortBy: string = 'createdAt', sortOrder: 'asc' | 'desc' = 'desc') {
     try {
-      let query: any = {};
+      interface PatientQuery {
+        $or?: Array<{
+          firstName?: RegExp;
+          lastName?: RegExp;
+          email?: RegExp;
+          phone?: RegExp;
+          nric?: RegExp;
+          legacyCustomerNo?: RegExp;
+        }>;
+      }
+      
+      let query: PatientQuery = {};
       
       // Add search functionality
       if (searchTerm && searchTerm.trim().length >= 2) {
@@ -22,7 +33,7 @@ export class PatientService {
         };
       }
       
-      const sortOptions: any = {};
+      const sortOptions: Record<string, 1 | -1> = {};
       sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
       
       // Calculate skip for pagination

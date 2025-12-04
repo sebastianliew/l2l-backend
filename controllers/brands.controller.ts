@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Brand, IBrand } from '../models/Brand.js';
+import { Brand } from '../models/Brand.js';
 import { Product } from '../models/Product.js';
 import { IUser } from '../models/User.js';
 
@@ -35,7 +35,7 @@ interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 
-export const getBrands = async (req: Request<{}, {}, {}, BrandQueryParams>, res: Response): Promise<void> => {
+export const getBrands = async (req: Request<Record<string, never>, Record<string, never>, Record<string, never>, BrandQueryParams>, res: Response): Promise<void> => {
   try {
     const {
       page = '1',
@@ -48,7 +48,11 @@ export const getBrands = async (req: Request<{}, {}, {}, BrandQueryParams>, res:
 
     // Build query
     interface BrandQuery {
-      $or?: Array<{ [key: string]: any }>;
+      $or?: Array<
+        | { name: { $regex: string; $options: string } }
+        | { code: { $regex: string; $options: string } }
+        | { description: { $regex: string; $options: string } }
+      >;
       status?: string;
       isActive?: boolean;
     }
@@ -232,13 +236,14 @@ export const updateBrand = async (req: AuthenticatedRequest, res: Response): Pro
     }
     
     // Update isActive based on status
+    const updatedFields = { ...updates } as typeof updates & { isActive?: boolean };
     if (updates.status !== undefined) {
-      (updates as any).isActive = updates.status === 'active';
+      updatedFields.isActive = updates.status === 'active';
     }
     
     const brand = await Brand.findByIdAndUpdate(
       req.params.id,
-      updates,
+      updatedFields,
       { new: true, runValidators: true }
     );
     

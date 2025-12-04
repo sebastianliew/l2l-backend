@@ -49,7 +49,7 @@ interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 
-export const login = async (req: Request<{}, {}, LoginRequest>, res: Response): Promise<void> => {
+export const login = async (req: Request<object, object, LoginRequest>, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
     
@@ -147,7 +147,7 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
   res.json({ message: 'Logged out successfully' });
 };
 
-export const refreshToken = async (req: Request<{}, {}, RefreshTokenRequest>, res: Response): Promise<void> => {
+export const refreshToken = async (req: Request<object, object, RefreshTokenRequest>, res: Response): Promise<void> => {
   try {
     const { refreshToken } = req.body;
     
@@ -182,7 +182,7 @@ export const refreshToken = async (req: Request<{}, {}, RefreshTokenRequest>, re
   }
 };
 
-export const createAdmin = async (req: Request<{}, {}, CreateAdminRequest> | AuthenticatedRequest, res: Response): Promise<void> => {
+export const createAdmin = async (req: Request<object, object, CreateAdminRequest> | AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { email, password, name } = req.body as CreateAdminRequest;
     
@@ -234,7 +234,7 @@ export const createAdmin = async (req: Request<{}, {}, CreateAdminRequest> | Aut
   }
 };
 
-export const createTempUser = async (req: Request<{}, {}, CreateTempUserRequest>, res: Response): Promise<void> => {
+export const createTempUser = async (req: Request<object, object, CreateTempUserRequest>, res: Response): Promise<void> => {
   try {
     const { email, name, role = 'user', expiresIn = '24h' } = req.body;
     
@@ -276,7 +276,7 @@ export const createTempUser = async (req: Request<{}, {}, CreateTempUserRequest>
   }
 };
 
-export const resetPassword = async (req: Request<{}, {}, ResetPasswordRequest>, res: Response): Promise<void> => {
+export const resetPassword = async (req: Request<object, object, ResetPasswordRequest>, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
     
@@ -311,17 +311,19 @@ export const resetPassword = async (req: Request<{}, {}, ResetPasswordRequest>, 
   }
 };
 
-export const confirmPasswordReset = async (req: Request<{}, {}, ConfirmPasswordResetRequest>, res: Response): Promise<void> => {
+export const confirmPasswordReset = async (req: Request<object, object, ConfirmPasswordResetRequest>, res: Response): Promise<void> => {
   try {
     const { token, newPassword } = req.body;
     
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string; type: string };
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET!);
     
-    if (decoded.type !== 'password-reset') {
+    if (typeof decodedToken === 'string' || !decodedToken || typeof decodedToken.userId !== 'string' || decodedToken.type !== 'password-reset') {
       res.status(400).json({ error: 'Invalid reset token' });
       return;
     }
+    
+    const decoded = decodedToken as { userId: string; type: string };
     
     // Find user
     const user = await User.findById(decoded.userId);
@@ -350,7 +352,7 @@ export const confirmPasswordReset = async (req: Request<{}, {}, ConfirmPasswordR
   }
 };
 
-export const forceLogout = async (req: Request<{}, {}, ForceLogoutRequest>, res: Response): Promise<void> => {
+export const forceLogout = async (req: Request<object, object, ForceLogoutRequest>, res: Response): Promise<void> => {
   try {
     const { userId } = req.body;
     
@@ -391,7 +393,7 @@ export const switchUser = async (req: AuthenticatedRequest, res: Response): Prom
     
     // Generate tokens for target user with admin info
     const accessToken = generateAccessToken(targetUser, {
-      switchedBy: adminUser._id,
+      switchedBy: String(adminUser._id),
       originalRole: adminUser.role
     });
     

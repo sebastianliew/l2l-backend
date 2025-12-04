@@ -1,4 +1,9 @@
 import { Request, Response } from 'express';
+import { IUser } from '../models/User.js';
+
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
 import { RestockService } from '../services/inventory/RestockService.js';
 import { RestockValidator } from '../lib/validations/restock.js';
 
@@ -68,7 +73,7 @@ export const restockProduct = async (req: Request, res: Response) => {
     }
 
     // Get user ID from authenticated request
-    const createdBy = (req as any).user?.id || 'system';
+    const createdBy = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
     const result = await restockService.restockProduct(validationResult.data!, createdBy);
     
     return res.json({
@@ -100,7 +105,7 @@ export const bulkRestockProducts = async (req: Request, res: Response) => {
     }
 
     // Get user ID from authenticated request
-    const createdBy = (req as any).user?.id || 'system';
+    const createdBy = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
     const result = await restockService.bulkRestock(validationResult.data!, createdBy);
     
     return res.json({

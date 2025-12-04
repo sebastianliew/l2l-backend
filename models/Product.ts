@@ -51,7 +51,7 @@ export interface IProduct extends Document {
   migrationData?: {
     source?: string;
     importedAt?: Date;
-    originalData?: any;
+    originalData?: Record<string, unknown>;
   };
   // Fields from SQL that don't exist in current schema
   discountFlags?: {

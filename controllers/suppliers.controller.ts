@@ -45,7 +45,7 @@ interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 
-export const getSuppliers = async (req: Request<{}, {}, {}, SupplierQueryParams>, res: Response): Promise<void> => {
+export const getSuppliers = async (req: Request<Record<string, never>, Record<string, never>, Record<string, never>, SupplierQueryParams>, res: Response): Promise<void> => {
   try {
     const {
       page = '1',
@@ -58,7 +58,13 @@ export const getSuppliers = async (req: Request<{}, {}, {}, SupplierQueryParams>
 
     // Build query
     interface SupplierQuery {
-      $or?: Array<{ [key: string]: any }>;
+      $or?: Array<
+        | { name: { $regex: string; $options: string } }
+        | { code: { $regex: string; $options: string } }
+        | { description: { $regex: string; $options: string } }
+        | { contactPerson: { $regex: string; $options: string } }
+        | { email: { $regex: string; $options: string } }
+      >;
       status?: string;
       isActive?: boolean;
     }
@@ -103,7 +109,15 @@ export const getSuppliers = async (req: Request<{}, {}, {}, SupplierQueryParams>
       _id: undefined
     }));
 
-    res.json(transformedSuppliers);
+    res.json({
+      suppliers: transformedSuppliers,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (error) {
     console.error('Error fetching suppliers:', error);
     res.status(500).json({ error: 'Failed to fetch suppliers' });
@@ -214,16 +228,18 @@ export const updateSupplier = async (req: AuthenticatedRequest, res: Response): 
     }
     
     // Update isActive based on status
-    if (updates.status !== undefined) {
-      (updates as any).isActive = updates.status === 'active';
-    }
+    const updatedFields = { 
+      ...updates,
+      lastModifiedBy: req.user?._id || 'system'
+    } as typeof updates & { isActive?: boolean; lastModifiedBy: string };
     
-    // Add lastModifiedBy
-    (updates as any).lastModifiedBy = req.user?._id || 'system';
+    if (updates.status !== undefined) {
+      updatedFields.isActive = updates.status === 'active';
+    }
     
     const supplier = await Supplier.findByIdAndUpdate(
       req.params.id,
-      updates,
+      updatedFields,
       { new: true, runValidators: true }
     );
     

@@ -6,7 +6,7 @@ import { Product } from '../../models/Product.js';
 
 export class ItemSalesController {
   static async getItemSalesReport(
-    req: Request<{}, {}, {}, ItemSalesFilters>,
+    req: Request<Record<string, never>, Record<string, never>, Record<string, never>, ItemSalesFilters>,
     res: Response<ItemSalesResponse>
   ): Promise<void> {
     try {
@@ -100,7 +100,7 @@ export class ItemSalesController {
       // Create a map of productId -> costPrice
       const costPriceMap = new Map<string, number>();
       products.forEach(product => {
-        costPriceMap.set((product._id as any).toString(), product.costPrice || 0);
+        costPriceMap.set(String(product._id), product.costPrice || 0);
       });
 
       // Calculate final results with actual cost data

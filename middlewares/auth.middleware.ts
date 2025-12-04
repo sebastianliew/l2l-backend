@@ -45,17 +45,21 @@ export const authenticateToken = async (
     // Attach user to request
     req.user = user;
     next();
-  } catch (error: any) {
-    if (error.name === 'JsonWebTokenError') {
-      res.status(401).json({ error: 'Invalid token' });
-      return;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      if (error.name === 'JsonWebTokenError') {
+        res.status(401).json({ error: 'Invalid token' });
+        return;
+      }
+      if (error.name === 'TokenExpiredError') {
+        res.status(401).json({ error: 'Token expired' });
+        return;
+      }
+      
+      console.error('Auth middleware error:', error.message);
+    } else {
+      console.error('Auth middleware error:', error);
     }
-    if (error.name === 'TokenExpiredError') {
-      res.status(401).json({ error: 'Token expired' });
-      return;
-    }
-    
-    console.error('Auth middleware error:', error);
     res.status(500).json({ error: 'Authentication failed' });
   }
 };

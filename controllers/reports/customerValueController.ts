@@ -12,7 +12,7 @@ import { Patient } from '../../models/Patient.js';
 
 export class CustomerValueController {
   static async getCustomerValueReport(
-    req: Request<{}, {}, {}, CustomerValueFilters>,
+    req: Request<Record<string, never>, Record<string, never>, Record<string, never>, CustomerValueFilters>,
     res: Response<CustomerValueResponse>
   ): Promise<void> {
     try {
@@ -201,7 +201,7 @@ export class CustomerValueController {
       // Create a map of productId -> costPrice
       const costPriceMap = new Map<string, number>();
       products.forEach(product => {
-        costPriceMap.set((product._id as any).toString(), product.costPrice || 0);
+        costPriceMap.set(String(product._id), product.costPrice || 0);
       });
 
       // Look up patient data for membership information

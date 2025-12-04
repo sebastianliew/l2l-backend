@@ -1,9 +1,24 @@
 import { Request, Response } from 'express';
 import { RefundService } from '../services/RefundService.js';
 import { Refund } from '../models/Refund.js';
+import { IUser } from '../models/User.js';
+
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
+
+interface RefundQueryParams {
+  status?: string;
+  customerId?: string;
+  startDate?: string;
+  endDate?: string;
+  refundReason?: string;
+  page?: string;
+  limit?: string;
+}
 
 // GET /api/refunds - Get all refunds with optional filters
-export const getRefunds = async (req: Request, res: Response): Promise<void> => {
+export const getRefunds = async (req: Request<Record<string, never>, Record<string, never>, Record<string, never>, RefundQueryParams>, res: Response): Promise<void> => {
   try {
     const {
       status,
@@ -15,13 +30,21 @@ export const getRefunds = async (req: Request, res: Response): Promise<void> => 
       limit = 20
     } = req.query;
 
-    const filters: any = {};
+    interface RefundFilters {
+      status?: string;
+      customerId?: string;
+      refundReason?: string;
+      startDate?: Date;
+      endDate?: Date;
+    }
+    
+    const filters: RefundFilters = {};
     
     if (status) filters.status = status;
     if (customerId) filters.customerId = customerId;
     if (refundReason) filters.refundReason = refundReason;
-    if (startDate) filters.startDate = new Date(startDate as string);
-    if (endDate) filters.endDate = new Date(endDate as string);
+    if (startDate) filters.startDate = new Date(startDate);
+    if (endDate) filters.endDate = new Date(endDate);
 
     const refunds = await RefundService.getRefunds(filters);
     
@@ -73,7 +96,7 @@ export const getRefundById = async (req: Request, res: Response): Promise<void> 
 export const createRefund = async (req: Request, res: Response): Promise<void> => {
   try {
     const { transactionId, ...refundData } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
 
     const refund = await RefundService.createRefund(transactionId, {
       ...refundData,
@@ -95,7 +118,7 @@ export const approveRefund = async (req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
     const { approvalNotes } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
 
     const refund = await RefundService.approveRefund(id, userId, approvalNotes);
     
@@ -114,7 +137,7 @@ export const rejectRefund = async (req: Request, res: Response): Promise<void> =
   try {
     const { id } = req.params;
     const { rejectionReason } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
 
     if (!rejectionReason) {
       res.status(400).json({ error: 'Rejection reason is required' });
@@ -137,7 +160,7 @@ export const rejectRefund = async (req: Request, res: Response): Promise<void> =
 export const processRefund = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id || 'system';
+    const userId = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
 
     const refund = await RefundService.processRefund(id, userId);
     
@@ -156,7 +179,7 @@ export const completeRefund = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
     const { paymentDetails } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
 
     const refund = await RefundService.completeRefund(id, userId, paymentDetails);
     
@@ -175,7 +198,7 @@ export const cancelRefund = async (req: Request, res: Response): Promise<void> =
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const userId = (req as any).user?.id || 'system';
+    const userId = (req as AuthenticatedRequest).user?._id?.toString() || 'system';
 
     if (!reason) {
       res.status(400).json({ error: 'Cancellation reason is required' });

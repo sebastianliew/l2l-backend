@@ -21,7 +21,7 @@ export interface ITransaction extends Document {
   // Transaction Details
   items: Array<{
     productId: string;
-    product?: any;
+    product?: Record<string, unknown>;
     name: string;
     description?: string;
     brand?: string;

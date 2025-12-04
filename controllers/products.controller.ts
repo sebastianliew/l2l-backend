@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Product, IProduct } from '../models/Product.js';
+import { Product } from '../models/Product.js';
 import { Category } from '../models/Category.js';
 import { Brand } from '../models/Brand.js';
 import { UnitOfMeasurement } from '../models/UnitOfMeasurement.js';
@@ -65,19 +65,23 @@ interface AuthenticatedRequest extends Request {
 }
 
 interface ProductQuery {
-  $or?: Array<{ [key: string]: any }>;
+  $or?: Array<
+    | { name: { $regex: string; $options: string } }
+    | { sku: { $regex: string; $options: string } }
+    | { description: { $regex: string; $options: string } }
+  >;
   category?: string;
   brand?: string;
   status?: string;
   isActive?: boolean;
   isDeleted?: { $ne: boolean } | boolean;
-  currentStock?: any;
-  $expr?: any;
-  sellingPrice?: any;
+  currentStock?: { $lte?: number; $gte?: number; $gt?: number } | number;
+  $expr?: { $lte: [string, number] } | Record<string, unknown>;
+  sellingPrice?: { $gte?: number; $lte?: number };
 }
 
 export const getProducts = async (
-  req: Request<{}, {}, {}, ProductQueryParams>,
+  req: Request<Record<string, never>, Record<string, never>, Record<string, never>, ProductQueryParams>,
   res: Response
 ): Promise<void> => {
   try {
@@ -148,18 +152,18 @@ export const getProducts = async (
 
     // Stock range filters
     if (minStock !== undefined) {
-      query.currentStock = { ...query.currentStock, $gte: parseInt(minStock) };
+      query.currentStock = { ...(typeof query.currentStock === 'object' ? query.currentStock : {}), $gte: parseInt(minStock) };
     }
     if (maxStock !== undefined) {
-      query.currentStock = { ...query.currentStock, $lte: parseInt(maxStock) };
+      query.currentStock = { ...(typeof query.currentStock === 'object' ? query.currentStock : {}), $lte: parseInt(maxStock) };
     }
 
     // Price range filters
     if (minPrice !== undefined) {
-      query.sellingPrice = { ...query.sellingPrice, $gte: parseFloat(minPrice) };
+      query.sellingPrice = { ...(typeof query.sellingPrice === 'object' ? query.sellingPrice : {}), $gte: parseFloat(minPrice) };
     }
     if (maxPrice !== undefined) {
-      query.sellingPrice = { ...query.sellingPrice, $lte: parseFloat(maxPrice) };
+      query.sellingPrice = { ...(typeof query.sellingPrice === 'object' ? query.sellingPrice : {}), $lte: parseFloat(maxPrice) };
     }
 
     // Calculate pagination
@@ -222,7 +226,7 @@ export const getProductById = async (
 };
 
 export const createProduct = async (
-  req: Request<{}, {}, CreateProductRequest>,
+  req: Request<Record<string, never>, Record<string, never>, CreateProductRequest>,
   res: Response
 ): Promise<void> => {
   try {
@@ -339,7 +343,7 @@ export const createProduct = async (
 };
 
 export const updateProduct = async (
-  req: Request<{ id: string }, {}, UpdateProductRequest>,
+  req: Request<{ id: string }, Record<string, never>, UpdateProductRequest>,
   res: Response
 ): Promise<void> => {
   try {
@@ -430,10 +434,12 @@ export const updateProduct = async (
 
     // Log admin activity
     if (authReq.user) {
-      const changes: { [key: string]: { from: any; to: any } } = {};
+      const changes: Record<string, { from: unknown; to: unknown }> = {};
       Object.keys(updates).forEach(key => {
-        if ((originalProduct as any)[key] !== updates[key as keyof UpdateProductRequest]) {
-          changes[key] = { from: (originalProduct as any)[key], to: updates[key as keyof UpdateProductRequest] };
+        const originalValue = (originalProduct as Record<string, unknown>)[key];
+        const newValue = updates[key as keyof UpdateProductRequest];
+        if (originalValue !== newValue) {
+          changes[key] = { from: originalValue, to: newValue };
         }
       });
 
@@ -510,11 +516,11 @@ export const deleteProduct = async (
 };
 
 export const addStock = async (
-  req: Request<{}, {}, AddStockRequest>,
+  req: Request<Record<string, never>, Record<string, never>, AddStockRequest>,
   res: Response
 ): Promise<void> => {
   try {
-    const { productId, quantity, notes } = req.body;
+    const { productId, quantity } = req.body;
 
     if (!productId || !quantity) {
       res.status(400).json({ error: 'Product ID and quantity are required' });
@@ -577,7 +583,7 @@ export const getProductTemplates = async (
 };
 
 export const bulkDeleteProducts = async (
-  req: Request<{}, {}, { productIds: string[] }>,
+  req: Request<Record<string, never>, Record<string, never>, { productIds: string[] }>,
   res: Response
 ): Promise<void> => {
   try {

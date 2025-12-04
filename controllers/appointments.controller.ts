@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { Types } from 'mongoose';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import Appointment from '../models/Appointment.js';
 
@@ -38,8 +39,8 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response):
       .lean();
     
     // Transform to match frontend interface
-    const transformedAppointments = appointments.map((apt: any) => ({
-      id: apt._id.toString(),
+    const transformedAppointments = appointments.map((apt) => ({
+      id: (apt._id as Types.ObjectId).toString(),
       date: apt.preferredDate,
       startTime: new Date(apt.preferredDate).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
@@ -59,7 +60,7 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response):
       notes: apt.notes || `Health Concerns: ${apt.healthConcerns || 'None'}\nAllergies: ${apt.allergies || 'None'}\nMedications: ${apt.medications || 'None'}`,
       history: [{
         id: '1',
-        appointmentId: apt._id.toString(),
+        appointmentId: (apt._id as Types.ObjectId).toString(),
         status: apt.status || 'scheduled',
         changedAt: apt.updatedAt,
         changedBy: 'system',

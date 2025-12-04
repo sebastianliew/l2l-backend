@@ -38,7 +38,17 @@ export class RefundService {
   // Get all refunds with optional filters
   static async getRefunds(filters: RefundFilters = {}): Promise<IRefund[]> {
     try {
-      const query: any = {};
+      interface RefundQuery {
+        status?: string;
+        customerId?: string;
+        refundReason?: string;
+        requestDate?: {
+          $gte?: Date;
+          $lte?: Date;
+        };
+      }
+      
+      const query: RefundQuery = {};
       
       if (filters.status) {
         query.status = filters.status;
@@ -286,7 +296,16 @@ export class RefundService {
   }
 
   // Complete refund (finalize payment)
-  static async completeRefund(refundId: string, userId: string, paymentDetails?: any): Promise<IRefund> {
+  static async completeRefund(
+    refundId: string, 
+    userId: string, 
+    paymentDetails?: {
+      method: string;
+      reference: string;
+      amount: number;
+      processedAt?: Date;
+    }
+  ): Promise<IRefund> {
     try {
       const refund = await Refund.findById(refundId);
       if (!refund) {

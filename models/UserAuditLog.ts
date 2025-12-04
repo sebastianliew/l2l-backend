@@ -6,8 +6,8 @@ export interface IUserAuditLog extends Document {
   action: string;
   targetUserId?: string;
   targetUserEmail?: string;
-  oldData?: any;
-  newData?: any;
+  oldData?: Record<string, unknown>;
+  newData?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   timestamp: Date;

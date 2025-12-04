@@ -72,7 +72,15 @@ export interface IRefund extends Document {
 
 // Static methods interface
 export interface IRefundModel extends Model<IRefund> {
-  getRefundStatistics(startDate?: Date, endDate?: Date): Promise<any>;
+  getRefundStatistics(startDate?: Date, endDate?: Date): Promise<{
+    totalRefunds: number;
+    totalAmount: number;
+    averageRefundAmount: number;
+    refundsByStatus: Record<string, number>;
+    refundsByReason: Record<string, number>;
+    refundsByMethod: Record<string, number>;
+    trends: Array<{ date: string; count: number; amount: number }>;
+  }>;
 }
 
 const RefundItemSchema = new Schema({
@@ -195,12 +203,12 @@ RefundSchema.pre('save', async function(next) {
 
 // Static method for refund statistics
 RefundSchema.statics.getRefundStatistics = async function(startDate?: Date, endDate?: Date) {
-  const matchStage: any = {};
+  const matchStage: Record<string, unknown> = {};
   
   if (startDate || endDate) {
-    matchStage.requestDate = {};
-    if (startDate) matchStage.requestDate.$gte = startDate;
-    if (endDate) matchStage.requestDate.$lte = endDate;
+    matchStage.requestDate = {} as Record<string, Date>;
+    if (startDate) (matchStage.requestDate as Record<string, Date>).$gte = startDate;
+    if (endDate) (matchStage.requestDate as Record<string, Date>).$lte = endDate;
   }
   
   const stats = await this.aggregate([

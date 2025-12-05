@@ -45,7 +45,6 @@ router.get('/transaction-date-range', async (req: Request, res: Response) => {
       });
     }
   } catch (error) {
-    console.error('Error fetching transaction date range:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Failed to fetch transaction date range',
@@ -57,20 +56,9 @@ router.get('/transaction-date-range', async (req: Request, res: Response) => {
 // Item Sales Report endpoint
 router.get('/item-sales', async (req: Request, res: Response) => {
   try {
-    console.log('🚀 Reports route: /item-sales request received');
-    console.log('🔍 Request details:', {
-      method: req.method,
-      originalUrl: req.originalUrl,
-      query: req.query,
-      headers: {
-        authorization: req.headers.authorization ? 'Present' : 'Missing',
-        'content-type': req.headers['content-type']
-      }
-    });
     
     await ItemSalesController.getItemSalesReport(req as unknown as Parameters<typeof ItemSalesController.getItemSalesReport>[0], res as Parameters<typeof ItemSalesController.getItemSalesReport>[1]);
   } catch (error) {
-    console.error('💥 Error in reports route:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

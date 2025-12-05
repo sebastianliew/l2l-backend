@@ -11,11 +11,66 @@ const router: Router = express.Router();
 // Apply authentication middleware to all report routes
 router.use(authenticateToken);
 
+// Transaction date range endpoint
+router.get('/transaction-date-range', async (req: Request, res: Response) => {
+  try {
+    const { Transaction } = await import('../models/Transaction.js');
+    
+    const dateRangeQuery = await Transaction.aggregate([
+      { $match: { type: 'sale', status: 'completed' } },
+      { 
+        $group: {
+          _id: null,
+          minDate: { $min: '$createdAt' },
+          maxDate: { $max: '$createdAt' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    if (dateRangeQuery.length > 0) {
+      res.json({
+        success: true,
+        data: {
+          earliest: dateRangeQuery[0].minDate,
+          latest: dateRangeQuery[0].maxDate,
+          count: dateRangeQuery[0].count
+        }
+      });
+    } else {
+      res.json({
+        success: false,
+        error: 'No transactions found',
+        data: null
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching transaction date range:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch transaction date range',
+      data: null 
+    });
+  }
+});
+
 // Item Sales Report endpoint
 router.get('/item-sales', async (req: Request, res: Response) => {
   try {
+    console.log('🚀 Reports route: /item-sales request received');
+    console.log('🔍 Request details:', {
+      method: req.method,
+      originalUrl: req.originalUrl,
+      query: req.query,
+      headers: {
+        authorization: req.headers.authorization ? 'Present' : 'Missing',
+        'content-type': req.headers['content-type']
+      }
+    });
+    
     await ItemSalesController.getItemSalesReport(req as unknown as Parameters<typeof ItemSalesController.getItemSalesReport>[0], res as Parameters<typeof ItemSalesController.getItemSalesReport>[1]);
   } catch (error) {
+    console.error('💥 Error in reports route:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

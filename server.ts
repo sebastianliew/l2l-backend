@@ -34,6 +34,7 @@ import patientsRoutes from './routes/patients.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import invoicesRoutes from './routes/invoices.routes.js';
+import webhooksRoutes from './routes/webhooks.routes.js';
 
 // Import services to initialize at startup
 import { emailService } from './services/EmailService.js';
@@ -191,6 +192,7 @@ app.use('/api', appointmentsRoutes);
 app.use('/api/patients', patientsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response): void => {

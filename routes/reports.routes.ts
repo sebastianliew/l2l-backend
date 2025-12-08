@@ -22,8 +22,10 @@ router.get('/sales-trends', SalesTrendsController.getSalesTrends);
 // Customer Value Report endpoint
 router.get('/customer-value', CustomerValueController.getCustomerValueReport);
 
+// Inventory Analysis endpoint
+router.get('/inventory-analysis', ReportsController.getInventoryAnalysis);
+
 // TODO: Add other report endpoints here
-// router.get('/inventory-analysis', InventoryAnalysisController.getInventoryReport);
 // router.get('/customer-insights', CustomerInsightsController.getCustomerInsights);
 
 export default router;

@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import connectDB from '@/lib/mongodb';
-import { User, IUser } from '@/models/User';
+import { Request } from 'express';
+import jwt from 'jsonwebtoken';
+import connectDB from '../lib/mongodb.js';
+import { User, IUser } from '../models/User.js';
 
 export interface AuthError {
   message: string;
@@ -9,18 +9,30 @@ export interface AuthError {
   status: number;
 }
 
-export async function getCurrentUser(request: NextRequest): Promise<IUser | AuthError> {
+export async function getCurrentUser(request: Request): Promise<IUser | AuthError> {
   try {
-    // Get JWT token from NextAuth
-    const token = await getToken({ 
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET
-    });
+    // Get JWT token from Authorization header
+    const authHeader = request.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
     
-    if (!token || !token.sub) {
+    if (!token) {
       return {
         message: 'Not authenticated',
         code: 'NO_TOKEN',
+        status: 401
+      };
+    }
+    
+    // Verify JWT token
+    const decoded = jwt.verify(
+      token, 
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { userId: string; role?: string };
+    
+    if (!decoded || !decoded.userId) {
+      return {
+        message: 'Invalid token',
+        code: 'INVALID_TOKEN',
         status: 401
       };
     }
@@ -28,8 +40,8 @@ export async function getCurrentUser(request: NextRequest): Promise<IUser | Auth
     // Connect to database
     await connectDB();
     
-    // Get user from MongoDB using the token subject (user ID)
-    const user = await User.findById(token.sub);
+    // Get user from MongoDB using the decoded user ID
+    const user = await User.findById(decoded.userId);
     
     if (!user) {
       return {

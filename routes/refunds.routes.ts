@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type IRouter } from 'express';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 import {
   getRefunds,
@@ -14,7 +14,7 @@ import {
   getRefundStatistics
 } from '../controllers/refunds.controller.js';
 
-const router = express.Router();
+const router: IRouter = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);

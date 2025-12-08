@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type IRouter } from 'express';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 import {
   getTransactions,
@@ -7,16 +7,29 @@ import {
   updateTransaction,
   deleteTransaction,
   generateTransactionInvoice,
-  sendInvoiceEmail
+  sendInvoiceEmail,
+  saveDraft,
+  getDrafts,
+  deleteDraft
 } from '../controllers/transactions.controller.js';
 
-const router = express.Router();
+const router: IRouter = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
 
 // GET /api/transactions - Get all transactions
 router.get('/', getTransactions);
+
+// Draft-related routes (must come before /:id to avoid conflicts)
+// GET /api/transactions/drafts - Get user's drafts
+router.get('/drafts', getDrafts);
+
+// POST /api/transactions/drafts/autosave - Save transaction as draft
+router.post('/drafts/autosave', saveDraft);
+
+// DELETE /api/transactions/drafts/:draftId - Delete a specific draft
+router.delete('/drafts/:draftId', deleteDraft);
 
 // GET /api/transactions/:id - Get transaction by ID
 router.get('/:id', getTransactionById);

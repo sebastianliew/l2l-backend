@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Bundle, IBundle } from '../models/Bundle.js';
+import { Bundle } from '../models/Bundle.js';
 import { Product } from '../models/Product.js';
 import { BlendTemplate } from '../models/BlendTemplate.js';
 import { IUser } from '../models/User.js';
@@ -63,7 +63,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 export const getBundles = async (
-  req: Request<{}, {}, {}, BundleQueryParams>,
+  req: Request<Record<string, never>, Record<string, never>, Record<string, never>, BundleQueryParams>,
   res: Response
 ): Promise<void> => {
   try {
@@ -84,7 +84,11 @@ export const getBundles = async (
     
     // Build query
     interface BundleQuery {
-      $or?: Array<{ [key: string]: any }>;
+      $or?: Array<
+        | { name: { $regex: string; $options: string } }
+        | { description: { $regex: string; $options: string } }
+        | { category: { $regex: string; $options: string } }
+      >;
       category?: { $regex: string; $options: string };
       isActive?: boolean;
       isPromoted?: boolean;
@@ -182,7 +186,7 @@ export const getBundleById = async (
 };
 
 export const createBundle = async (
-  req: Request<{}, {}, CreateBundleRequest>,
+  req: Request<Record<string, never>, Record<string, never>, CreateBundleRequest>,
   res: Response
 ): Promise<void> => {
   try {
@@ -266,8 +270,6 @@ export const createBundle = async (
     // Populate for response - skip createdBy populate to avoid ObjectId casting errors
     await bundle.populate('bundleProducts.productId', 'name sku availableStock');
     
-    console.log(`Bundle created by ${authReq.user.email}: ${bundle.name}`);
-    
     res.status(201).json(bundle);
   } catch (error) {
     console.error('Error creating bundle:', error);
@@ -276,7 +278,7 @@ export const createBundle = async (
 };
 
 export const updateBundle = async (
-  req: Request<{ id: string }, {}, UpdateBundleRequest>,
+  req: Request<{ id: string }, Record<string, never>, UpdateBundleRequest>,
   res: Response
 ): Promise<void> => {
   try {
@@ -384,7 +386,7 @@ export const getBundleCategories = async (
 };
 
 export const getPopularBundles = async (
-  req: Request<{}, {}, {}, { limit?: string }>,
+  req: Request<Record<string, never>, Record<string, never>, Record<string, never>, { limit?: string }>,
   res: Response
 ): Promise<void> => {
   try {
@@ -450,7 +452,7 @@ export const getBundleStats = async (
 };
 
 export const checkBundleAvailability = async (
-  req: Request<{ id: string }, {}, {}, { quantity?: string }>,
+  req: Request<{ id: string }, Record<string, never>, Record<string, never>, { quantity?: string }>,
   res: Response
 ): Promise<void> => {
   try {
@@ -471,7 +473,7 @@ export const checkBundleAvailability = async (
 };
 
 export const calculateBundlePricing = async (
-  req: Request<{}, {}, { bundleProducts: BundleProduct[]; bundlePrice: number }>,
+  req: Request<Record<string, never>, Record<string, never>, { bundleProducts: BundleProduct[]; bundlePrice: number }>,
   res: Response
 ): Promise<void> => {
   try {

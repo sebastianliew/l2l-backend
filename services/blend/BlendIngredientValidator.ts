@@ -1,5 +1,5 @@
 import { connectDB } from '../../lib/mongoose.js';
-import { Product } from '../../models/Product.js';
+import { Product, IProduct } from '../../models/Product.js';
 import { UnitOfMeasurement } from '../../models/UnitOfMeasurement.js';
 import type { 
   ValidationResult,
@@ -146,7 +146,21 @@ export class BlendIngredientValidator {
    */
   private validateDataConsistency(
     ingredient: Omit<BlendIngredient, 'availableStock' | 'selectedContainers'>,
-    product: any
+    product: {
+      _id: string;
+      name: string;
+      costPrice?: number;
+      sellingPrice?: number;
+      currentStock?: number;
+      containerCapacity?: number;
+      containers?: {
+        full?: number;
+        partial?: Array<{
+          remaining: number;
+          capacity: number;
+        }>;
+      };
+    }
   ): void {
     // Check if ingredient is using cost price instead of selling price (THE MAIN ISSUE!)
     if (ingredient.costPerUnit === product.costPrice && product.sellingPrice) {
@@ -165,8 +179,8 @@ export class BlendIngredientValidator {
     }
 
     // Check unit consistency
-    if (product.baseUnit && ingredient.unitName !== product.baseUnit) {
-      console.warn(`📏 UNIT MISMATCH: Ingredient unit "${ingredient.unitName}" differs from product unit "${product.baseUnit}"`);
+    if ((product as IProduct).unitName && ingredient.unitName !== (product as IProduct).unitName) {
+      console.warn(`📏 UNIT MISMATCH: Ingredient unit "${ingredient.unitName}" differs from product unit "${(product as IProduct).unitName}"`);
     }
 
     // Check for missing price
@@ -180,7 +194,11 @@ export class BlendIngredientValidator {
    */
   private getCorrectCostPrice(
     ingredient: Omit<BlendIngredient, 'availableStock' | 'selectedContainers'>,
-    product: any
+    product: {
+      costPrice?: number;
+      sellingPrice?: number;
+      name: string;
+    }
   ): number {
     // ALWAYS use selling price for all transactions - cost price is only for reference
     if (ingredient.costPerUnit === product.costPrice && product.sellingPrice) {
@@ -209,8 +227,8 @@ export class BlendIngredientValidator {
     autoFixSuggestions: Array<{
       ingredientIndex: number;
       field: string;
-      currentValue: any;
-      suggestedValue: any;
+      currentValue: unknown;
+      suggestedValue: unknown;
       reason: string;
     }>;
   }> {
@@ -220,8 +238,8 @@ export class BlendIngredientValidator {
     const autoFixSuggestions: Array<{
       ingredientIndex: number;
       field: string;
-      currentValue: any;
-      suggestedValue: any;
+      currentValue: unknown;
+      suggestedValue: unknown;
       reason: string;
     }> = [];
 
@@ -261,13 +279,13 @@ export class BlendIngredientValidator {
         }
 
         // Check for unit inconsistency
-        if (product.baseUnit && ingredient.unitName !== product.baseUnit) {
-          issues.push(`Ingredient unit "${ingredient.unitName}" differs from product unit "${product.baseUnit}"`);
+        if ((product as IProduct).unitName && ingredient.unitName !== (product as IProduct).unitName) {
+          issues.push(`Ingredient unit "${ingredient.unitName}" differs from product unit "${(product as IProduct).unitName}"`);
           autoFixSuggestions.push({
             ingredientIndex: i,
             field: 'unitName',
             currentValue: ingredient.unitName,
-            suggestedValue: product.baseUnit,
+            suggestedValue: (product as IProduct).unitName,
             reason: 'Product unit has been updated in the database'
           });
         }

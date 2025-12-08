@@ -35,7 +35,7 @@ interface CategoryWithCount extends ICategory {
 }
 
 export const getCategories = async (
-  req: Request<{}, {}, {}, CategoryQueryParams>,
+  req: Request<Record<string, never>, Record<string, never>, Record<string, never>, CategoryQueryParams>,
   res: Response
 ): Promise<void> => {
   try {
@@ -52,7 +52,10 @@ export const getCategories = async (
     
     // Build query
     interface CategoryQuery {
-      $or?: Array<{ [key: string]: any }>;
+      $or?: Array<
+        | { name: { $regex: string; $options: string } }
+        | { description: { $regex: string; $options: string } }
+      >;
       isActive?: boolean;
     }
     
@@ -81,7 +84,7 @@ export const getCategories = async (
         .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
         .skip(skip)
         .limit(limitNum)
-        .lean(),
+        .lean<ICategory[]>(),
       Category.countDocuments(query)
     ]);
     console.log(`📊 Found ${categories.length} categories, total: ${total}`);
@@ -90,7 +93,7 @@ export const getCategories = async (
     const categoriesWithCount: CategoryWithCount[] = await Promise.all(
       categories.map(async (category) => {
         const productCount = await Product.countDocuments({ 
-          category: category._id,
+          category: category._id as string,
           isActive: true 
         });
         return { ...category, productCount } as unknown as CategoryWithCount;
@@ -119,7 +122,7 @@ export const getCategoryById = async (
   res: Response
 ): Promise<void> => {
   try {
-    const category = await Category.findById(req.params.id).lean();
+    const category = await Category.findById(req.params.id).lean<ICategory>();
     
     if (!category) {
       res.status(404).json({ error: 'Category not found' });
@@ -128,7 +131,7 @@ export const getCategoryById = async (
     
     // Get product count
     const productCount = await Product.countDocuments({ 
-      category: (category as any)._id,
+      category: category._id as string,
       isActive: true 
     });
     
@@ -142,7 +145,7 @@ export const getCategoryById = async (
 };
 
 export const createCategory = async (
-  req: Request<{}, {}, CreateCategoryRequest>,
+  req: Request<Record<string, never>, Record<string, never>, CreateCategoryRequest>,
   res: Response
 ): Promise<void> => {
   try {
@@ -167,12 +170,6 @@ export const createCategory = async (
     
     await category.save();
     
-    // Log activity if user is available
-    const authReq = req as AuthenticatedRequest;
-    if (authReq.user) {
-      console.log(`Category created by ${authReq.user.email}: ${category.name}`);
-    }
-    
     res.status(201).json(category);
   } catch (error) {
     console.error('Error creating category:', error);
@@ -181,7 +178,7 @@ export const createCategory = async (
 };
 
 export const updateCategory = async (
-  req: Request<{ id: string }, {}, UpdateCategoryRequest>,
+  req: Request<{ id: string }, Record<string, never>, UpdateCategoryRequest>,
   res: Response
 ): Promise<void> => {
   try {

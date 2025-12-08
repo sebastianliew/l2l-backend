@@ -12,7 +12,7 @@ export class BrandService {
   /**
    * Transform MongoDB document to DTO
    */
-  private static transformToDTO(brand: IBrand & { _id: any }): BrandDTO {
+  private static transformToDTO(brand: IBrand & { _id: string }): BrandDTO {
     const doc = brand.toObject();
     return {
       ...doc,
@@ -31,7 +31,19 @@ export class BrandService {
   static async getAllBrands(filters?: BrandFilters): Promise<BrandDTO[]> {
     await connectDB();
     
-    const query: any = {};
+    interface BrandQuery {
+      name?: { $regex: string; $options: string };
+      status?: string;
+      isActive?: boolean;
+      isExclusive?: boolean;
+      $or?: Array<
+        | { name: { $regex: string; $options: string } }
+        | { code: { $regex: string; $options: string } }
+        | { description: { $regex: string; $options: string } }
+      >;
+    }
+    
+    const query: BrandQuery = {};
     
     if (filters) {
       if (filters.status !== undefined) {
@@ -110,10 +122,11 @@ export class BrandService {
     }
     
     // Filter out undefined values
-    const updateData: any = {};
+    const updateData: Partial<UpdateBrandDTO> = {};
     Object.keys(data).forEach(key => {
-      if (data[key as keyof UpdateBrandDTO] !== undefined) {
-        updateData[key] = data[key as keyof UpdateBrandDTO];
+      const typedKey = key as keyof UpdateBrandDTO;
+      if (data[typedKey] !== undefined) {
+        (updateData as Record<string, unknown>)[key] = data[typedKey];
       }
     });
     
@@ -153,7 +166,9 @@ export class BrandService {
   static async brandExistsByName(name: string, excludeId?: string): Promise<boolean> {
     await connectDB();
     
-    const query: any = { name: { $regex: `^${name}$`, $options: 'i' } };
+    const query: { name: { $regex: string; $options: string }; _id?: { $ne: string } } = { 
+      name: { $regex: `^${name}$`, $options: 'i' } 
+    };
     
     if (excludeId) {
       query._id = { $ne: excludeId };

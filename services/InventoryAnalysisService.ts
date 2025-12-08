@@ -73,7 +73,16 @@ export class InventoryAnalysisService {
     }
   }
 
-  private static async getInventoryData(db: mongoose.mongo.Db): Promise<any[]> {
+  private static async getInventoryData(db: mongoose.mongo.Db): Promise<Array<{
+    id: string;
+    name: string;
+    category: string;
+    current_stock: number;
+    min_stock: number;
+    cost_price: number;
+    selling_price: number;
+    stock_status: string;
+  }>> {
     const pipeline = [
       {
         $match: {
@@ -110,10 +119,22 @@ export class InventoryAnalysisService {
       }
     ]
 
-    return await db.collection('products').aggregate(pipeline).toArray()
+    return await db.collection('products').aggregate(pipeline).toArray() as Array<{
+      id: string;
+      name: string;
+      category: string;
+      current_stock: number;
+      min_stock: number;
+      cost_price: number;
+      selling_price: number;
+      stock_status: string;
+    }>
   }
 
-  private static async getTurnoverData(db: mongoose.mongo.Db): Promise<any[]> {
+  private static async getTurnoverData(db: mongoose.mongo.Db): Promise<Array<{
+    _id: string;
+    totalSold: number;
+  }>> {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -136,10 +157,25 @@ export class InventoryAnalysisService {
       }
     ]
 
-    return await db.collection('transactions').aggregate(pipeline).toArray()
+    return await db.collection('transactions').aggregate(pipeline).toArray() as Array<{
+      _id: string;
+      totalSold: number;
+    }>
   }
 
-  private static enhanceInventoryData(inventoryData: any[], turnoverMap: Map<string, number>): InventoryItem[] {
+  private static enhanceInventoryData(
+    inventoryData: Array<{
+      id: string;
+      name: string;
+      category: string;
+      current_stock: number;
+      min_stock: number;
+      cost_price: number;
+      selling_price: number;
+      stock_status: string;
+    }>,
+    turnoverMap: Map<string, number>
+  ): InventoryItem[] {
     return inventoryData.map((item) => {
       const monthlySales = turnoverMap.get(item.id.toString()) || 0
       const dailySales = monthlySales / 30
@@ -157,6 +193,10 @@ export class InventoryAnalysisService {
 
       return {
         ...item,
+        max_stock: item.current_stock * 2, // Default to 2x current stock
+        unit: 'unit', // Default unit
+        unit_cost: item.cost_price,
+        total_value: item.current_stock * item.cost_price,
         turnover_rate: turnoverRate,
         days_supply: daysSupply,
         status
@@ -199,9 +239,16 @@ export class InventoryAnalysisService {
     ]
 
     const results = await db.collection('products').aggregate(pipeline).toArray()
-    const totalValue = results.reduce((sum: number, item: any) => sum + (item.value || 0), 0)
+    interface CategoryResult {
+      category: string;
+      items: number;
+      value: number;
+    }
     
-    return results.map((item: any) => ({
+    const typedResults = results as CategoryResult[];
+    const totalValue = typedResults.reduce((sum: number, item) => sum + (item.value || 0), 0)
+    
+    return typedResults.map((item) => ({
       category: item.category || 'Uncategorized',
       items: item.items || 0,
       value: item.value || 0,

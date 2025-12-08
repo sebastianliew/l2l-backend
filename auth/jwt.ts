@@ -50,7 +50,11 @@ interface AccessTokenPayload {
   role: string;
   username: string;
   type: 'access';
-  [key: string]: any; // For additional data
+  permissions?: string[];
+  discountPermissions?: Record<string, boolean>;
+  lastLoginAt?: Date;
+  switchedBy?: string;
+  originalRole?: string;
 }
 
 interface RefreshTokenPayload {
@@ -67,12 +71,19 @@ interface TokenPair {
 interface DecodedToken {
   exp?: number;
   iat?: number;
-  [key: string]: any;
+  sub?: string;
+  userId?: string;
+  email?: string;
+  role?: string;
+  username?: string;
+  type?: 'access' | 'refresh';
+  permissions?: string[];
+  discountPermissions?: Record<string, boolean>;
 }
 
 export function generateAccessToken(
   user: IUser, 
-  additionalData: Record<string, any> = {}
+  additionalData: Partial<Pick<AccessTokenPayload, 'permissions' | 'discountPermissions' | 'lastLoginAt' | 'switchedBy' | 'originalRole'>> = {}
 ): string {
   const JWT_SECRET = getJWTSecret();
   

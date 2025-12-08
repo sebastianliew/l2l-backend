@@ -34,6 +34,7 @@ import patientsRoutes from './routes/patients.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import invoicesRoutes from './routes/invoices.routes.js';
+import webhooksRoutes from './routes/webhooks.routes.js';
 
 // Import services to initialize at startup
 import { emailService } from './services/EmailService.js';
@@ -126,20 +127,14 @@ const corsOptions: cors.CorsOptions = {
       process.env.FRONTEND_URL,
     ].filter((origin): origin is string => Boolean(origin));
     
-    console.log(`🌐 CORS Request from origin: ${origin || 'no-origin'}`);
-    console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
-    
     // Allow requests with no origin (like mobile apps or Postman)
     if (!origin) {
-      console.log('✅ Allowing request with no origin');
       return callback(null, true);
     }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log(`✅ Origin ${origin} is allowed`);
       callback(null, true);
     } else {
-      console.log(`❌ Origin ${origin} is NOT allowed`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -197,6 +192,7 @@ app.use('/api', appointmentsRoutes);
 app.use('/api/patients', patientsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response): void => {

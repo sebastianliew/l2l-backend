@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import express, { Router, Request } from 'express';
 import { 
   login,
   logout,
@@ -12,6 +12,12 @@ import {
   debug
 } from '../controllers/auth.controller.js';
 import { authenticateToken, requireRole } from '../middlewares/auth.middleware.js';
+import { IUser } from '../models/User.js';
+
+// Extended request interface for authenticated routes
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+}
 
 const router: Router = express.Router();
 
@@ -23,7 +29,7 @@ router.post('/password-reset', resetPassword);
 router.post('/password-reset/confirm', confirmPasswordReset);
 
 // Protected routes
-router.get('/me', authenticateToken, (req: any, res) => {
+router.get('/me', authenticateToken, (req: AuthenticatedRequest, res) => {
   // Return the authenticated user
   res.json({ user: req.user });
 });

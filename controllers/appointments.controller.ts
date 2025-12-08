@@ -1,14 +1,12 @@
 import { Response } from 'express';
+import { Types } from 'mongoose';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import Appointment from '../models/Appointment.js';
 
 // Get all appointments for dashboard
 export const getAppointments = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    console.log('[Backend] GET /dashboard/appointments - Starting...');
-    console.log('[Backend] User:', req.user);
     const { date, status } = req.query;
-    console.log('[Backend] Query params:', { date, status });
     
     interface AppointmentQuery {
       preferredDate?: {
@@ -36,15 +34,13 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response):
       query.status = status as string;
     }
     
-    console.log('[Backend] MongoDB query:', query);
     const appointments = await Appointment.find(query)
       .sort({ preferredDate: -1 })
       .lean();
-    console.log('[Backend] Found', appointments.length, 'appointments');
     
     // Transform to match frontend interface
-    const transformedAppointments = appointments.map((apt: any) => ({
-      id: apt._id.toString(),
+    const transformedAppointments = appointments.map((apt) => ({
+      id: (apt._id as Types.ObjectId).toString(),
       date: apt.preferredDate,
       startTime: new Date(apt.preferredDate).toLocaleTimeString('en-US', { 
         hour: '2-digit', 
@@ -64,7 +60,7 @@ export const getAppointments = async (req: AuthenticatedRequest, res: Response):
       notes: apt.notes || `Health Concerns: ${apt.healthConcerns || 'None'}\nAllergies: ${apt.allergies || 'None'}\nMedications: ${apt.medications || 'None'}`,
       history: [{
         id: '1',
-        appointmentId: apt._id.toString(),
+        appointmentId: (apt._id as Types.ObjectId).toString(),
         status: apt.status || 'scheduled',
         changedAt: apt.updatedAt,
         changedBy: 'system',

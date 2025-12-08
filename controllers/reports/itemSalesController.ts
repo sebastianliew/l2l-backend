@@ -6,10 +6,11 @@ import { Product } from '../../models/Product.js';
 
 export class ItemSalesController {
   static async getItemSalesReport(
-    req: Request<{}, {}, {}, ItemSalesFilters>,
+    req: Request<Record<string, never>, Record<string, never>, Record<string, never>, ItemSalesFilters>,
     res: Response<ItemSalesResponse>
   ): Promise<void> {
     try {
+      
       const { startDate, endDate, productId, categoryId, minSales, sortBy = 'total_sales', sortOrder = 'desc' } = req.query;
 
       // Build match conditions with proper typing
@@ -18,18 +19,22 @@ export class ItemSalesController {
         status: 'completed'
       };
 
+
       // Add date filters if provided
       if (startDate || endDate) {
         matchConditions.createdAt = {} as Record<string, Date>;
         
         if (startDate) {
-          (matchConditions.createdAt as Record<string, Date>).$gte = new Date(startDate);
+          const startDateObj = new Date(startDate);
+          (matchConditions.createdAt as Record<string, Date>).$gte = startDateObj;
         }
         
         if (endDate) {
-          (matchConditions.createdAt as Record<string, Date>).$lte = new Date(endDate);
+          const endDateObj = new Date(endDate);
+          (matchConditions.createdAt as Record<string, Date>).$lte = endDateObj;
         }
       }
+
 
       // Build aggregation pipeline to get sales data first (without cost calculation)
       const pipeline: PipelineStage[] = [
@@ -84,7 +89,9 @@ export class ItemSalesController {
       });
 
       // Get initial results without cost data
+      
       const salesResults = await Transaction.aggregate(pipeline);
+      
 
       // Get all unique product IDs from the results
       const productIds = salesResults
@@ -100,7 +107,7 @@ export class ItemSalesController {
       // Create a map of productId -> costPrice
       const costPriceMap = new Map<string, number>();
       products.forEach(product => {
-        costPriceMap.set((product._id as any).toString(), product.costPrice || 0);
+        costPriceMap.set(String(product._id), product.costPrice || 0);
       });
 
       // Calculate final results with actual cost data
@@ -142,16 +149,19 @@ export class ItemSalesController {
         }
       });
 
-      res.json({
+
+      const response = {
         data: filteredResults,
         success: true,
         metadata: {
           totalItems: filteredResults.length,
           generatedAt: new Date().toISOString()
         }
-      });
+      };
+
+
+      res.json(response);
     } catch (error) {
-      console.error('Error fetching item sales data:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       

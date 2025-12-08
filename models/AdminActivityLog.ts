@@ -6,9 +6,9 @@ export interface IAdminActivityLog extends Document {
   action: string;
   resource: string;
   resourceId?: string;
-  oldData?: any;
-  newData?: any;
-  metadata?: Record<string, any>;
+  oldData?: Record<string, unknown>;
+  newData?: Record<string, unknown>;
+  metadata?: Record<string, string | number | boolean | Date>;
   ipAddress?: string;
   userAgent?: string;
   timestamp: Date;

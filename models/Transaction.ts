@@ -21,7 +21,7 @@ export interface ITransaction extends Document {
   // Transaction Details
   items: Array<{
     productId: string;
-    product?: any;
+    product?: Record<string, unknown>;
     name: string;
     description?: string;
     brand?: string;
@@ -72,6 +72,9 @@ export interface ITransaction extends Document {
   lastModifiedBy?: string;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Draft tracking
+  draftId?: string;
 
   // Refund tracking fields
   refundStatus?: 'none' | 'partial' | 'full';
@@ -177,6 +180,9 @@ const TransactionSchema = new Schema<ITransaction>({
   // System fields
   createdBy: { type: String, required: true },
   lastModifiedBy: { type: String },
+  
+  // Draft tracking
+  draftId: { type: String },
 
   // Refund tracking fields
   refundStatus: { type: String, enum: ['none', 'partial', 'full'], default: 'none' },

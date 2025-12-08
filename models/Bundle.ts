@@ -15,7 +15,7 @@ export interface IBundle extends Document {
   // Bundle Products
   bundleProducts: Array<{
     productId: Schema.Types.ObjectId;
-    product?: any;
+    product?: Record<string, unknown>;
     name: string;
     quantity: number;
     productType: 'product' | 'fixed_blend';
@@ -58,7 +58,7 @@ export interface IBundle extends Document {
   migrationData?: {
     source?: string;
     importedAt?: Date;
-    originalData?: Map<string, any>;
+    originalData?: Map<string, unknown>;
   };
 }
 

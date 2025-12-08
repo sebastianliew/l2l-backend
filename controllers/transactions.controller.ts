@@ -576,3 +576,123 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
     });
   }
 };
+
+// POST /api/transactions/drafts/autosave - Save transaction as draft
+export const saveDraft = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { draftId, draftName, formData } = req.body;
+
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Convert form data to transaction format
+    const transactionData = {
+      transactionNumber: `DRAFT-${Date.now()}`,
+      customerName: formData.customerName || 'Draft Customer',
+      customerId: formData.customerId,
+      customerEmail: formData.customerEmail,
+      customerPhone: formData.customerPhone,
+      items: formData.items || [],
+      subtotal: formData.subtotal || 0,
+      discountAmount: formData.discount || 0,
+      totalAmount: formData.total || formData.subtotal || 0,
+      paymentMethod: formData.paymentMethod || 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      notes: `Draft: ${draftName || 'Auto-saved draft'}`,
+      transactionDate: new Date(),
+      currency: 'SGD',
+      createdBy: req.user.id,
+      lastModifiedBy: req.user.id,
+      draftId: draftId // Store the client-side draft ID for reference
+    };
+
+    // Check if draft already exists (for updates)
+    let transaction = await Transaction.findOne({ draftId, createdBy: req.user.id });
+
+    if (transaction) {
+      // Update existing draft
+      Object.assign(transaction, transactionData);
+      transaction.updatedAt = new Date();
+    } else {
+      // Create new draft
+      transaction = new Transaction(transactionData);
+    }
+
+    const savedTransaction = await transaction.save();
+
+    res.status(200).json({
+      success: true,
+      draftId: savedTransaction.draftId,
+      transactionId: savedTransaction._id,
+      message: 'Draft saved successfully'
+    });
+  } catch (error) {
+    console.error('Error saving draft:', error);
+    res.status(500).json({
+      error: 'Failed to save draft',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+// GET /api/transactions/drafts - Get user's drafts
+export const getDrafts = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const drafts = await Transaction.find({
+      createdBy: req.user.id,
+      status: 'draft'
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    res.status(200).json(drafts);
+  } catch (error) {
+    console.error('Error fetching drafts:', error);
+    res.status(500).json({
+      error: 'Failed to fetch drafts',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+// DELETE /api/transactions/drafts/:draftId - Delete a specific draft
+export const deleteDraft = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { draftId } = req.params;
+
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const result = await Transaction.deleteOne({
+      draftId,
+      createdBy: req.user.id,
+      status: 'draft'
+    });
+
+    if (result.deletedCount === 0) {
+      res.status(404).json({ error: 'Draft not found' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Draft deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting draft:', error);
+    res.status(500).json({
+      error: 'Failed to delete draft',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};

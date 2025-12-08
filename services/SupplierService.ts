@@ -26,7 +26,25 @@ export class SupplierService {
     }
   }
 
-  static async createSupplier(data: any, userId?: string) {
+  static async createSupplier(
+    data: {
+      name: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      address?: {
+        street?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        country?: string;
+      };
+      status?: 'active' | 'inactive';
+      website?: string;
+      notes?: string;
+    }, 
+    userId?: string
+  ) {
     await connectDB()
     const supplierData = {
       ...data,
@@ -41,7 +59,26 @@ export class SupplierService {
     }
   }
 
-  static async updateSupplier(id: string, data: any, userId?: string) {
+  static async updateSupplier(
+    id: string, 
+    data: Partial<{
+      name: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      address?: {
+        street?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        country?: string;
+      };
+      status?: 'active' | 'inactive';
+      website?: string;
+      notes?: string;
+    }>, 
+    userId?: string
+  ) {
     await connectDB()
     const supplier = await Supplier.findByIdAndUpdate(
       id,
@@ -69,7 +106,7 @@ export class SupplierService {
     return await SupplierCategory.find().sort({ name: 1 })
   }
 
-  static async createCategory(data: any) {
+  static async createCategory(data: { name: string; description?: string; isActive?: boolean }) {
     await connectDB()
     const category = new SupplierCategory(data)
     await category.save()

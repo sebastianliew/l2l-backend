@@ -1,8 +1,8 @@
-import express from 'express';
+import express, { type IRouter } from 'express';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 import { downloadInvoice } from '../controllers/invoices.controller.js';
 
-const router = express.Router();
+const router: IRouter = express.Router();
 
 // Apply authentication middleware
 router.use(authenticateToken);

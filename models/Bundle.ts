@@ -180,7 +180,6 @@ bundleSchema.pre('save', async function(next) {
 
 // Method to check bundle availability
 bundleSchema.methods.checkAvailability = async function(quantity = 1) {
-  const Bundle = this.constructor;
   const Product = mongoose.model('Product');
   
   const availability = {

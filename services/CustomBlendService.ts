@@ -262,7 +262,7 @@ export class CustomBlendService {
     await connectDB();
     
     try {
-      const movements = await this.deductCustomBlendIngredients(
+      await this.deductCustomBlendIngredients(
         blendData.ingredients,
         transactionId,
         transactionNumber,
@@ -399,7 +399,7 @@ export class CustomBlendService {
   
   // Check if ingredients are available for container selection
   // Note: Container functionality has been removed
-  async getAvailableContainers(productId: string): Promise<never[]> {
+  async getAvailableContainers(_productId: string): Promise<never[]> {
     await connectDB();
     
     try {

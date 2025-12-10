@@ -15,7 +15,7 @@ export interface FluentFormWebhookPayload {
   response?: FluentFormResponse;
   
   // Raw form data (alternative structure)
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Dynamic response structure from Fluent Forms
@@ -26,7 +26,7 @@ export interface FluentFormResponse {
 export interface FluentFormFieldValue {
   value?: string | number | boolean;
   label?: string;
-  raw?: any;
+  raw?: unknown;
 }
 
 // Mapped patient data from webhook

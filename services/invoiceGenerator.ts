@@ -1,6 +1,5 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
-import path from 'path';
 import QRCode from 'qrcode';
 
 interface InvoiceItem {
@@ -50,7 +49,7 @@ export class InvoiceGenerator {
   }
 
   async generateInvoice(data: InvoiceData, outputPath: string): Promise<void> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const stream = fs.createWriteStream(outputPath);
 
       stream.on('finish', () => {
@@ -65,21 +64,25 @@ export class InvoiceGenerator {
 
       this.doc.pipe(stream);
 
-      try {
-        // Generate invoice content
-        this.addHeader(data);
-        this.addCustomerAndPaymentInfo(data);
-        this.addItemsTable(data);
-        this.addTotals(data);
-        this.addPaymentStatusBox(data);
-        await this.addPaymentRequiredBox(data);
-        this.addFooter(data);
+      const generateContent = async () => {
+        try {
+          // Generate invoice content
+          this.addHeader(data);
+          this.addCustomerAndPaymentInfo(data);
+          this.addItemsTable(data);
+          this.addTotals(data);
+          this.addPaymentStatusBox(data);
+          await this.addPaymentRequiredBox(data);
+          this.addFooter(data);
 
-        this.doc.end();
-      } catch (error) {
-        console.error('[InvoiceGenerator] Error generating invoice content:', error);
-        reject(error);
-      }
+          this.doc.end();
+        } catch (error) {
+          console.error('[InvoiceGenerator] Error generating invoice content:', error);
+          reject(error);
+        }
+      };
+
+      generateContent();
     });
   }
 

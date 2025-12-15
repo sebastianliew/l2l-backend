@@ -326,7 +326,6 @@ export class BlendTemplateService {
       // Validate unit of measurement with fallback logic
       let uom = null;
       let unitId = ingredient.unitOfMeasurementId;
-      let unitName = ingredient.unitName || '';
       
       // Looking for unit
       if (unitId) {
@@ -356,7 +355,6 @@ export class BlendTemplateService {
         if (defaultUoms.length > 0) {
           uom = defaultUoms[0];
           unitId = uom._id.toString();
-          unitName = uom.name;
           console.warn(`Using default unit ${uom.name} for ingredient: ${ingredient.name}`);
         } else {
           console.error(`No suitable unit of measurement found for ingredient: ${ingredient.name}`);

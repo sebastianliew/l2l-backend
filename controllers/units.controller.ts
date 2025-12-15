@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { UnitOfMeasurement, IUnitOfMeasurement } from '../models/UnitOfMeasurement.js';
-import { IUser } from '../models/User.js';
 
 // Request interfaces
 interface UnitQueryParams {
@@ -23,12 +22,8 @@ interface UpdateUnitRequest extends Partial<CreateUnitRequest> {
   updatedAt?: Date;
 }
 
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
-}
-
 export const getUnits = async (
-  req: Request<{}, {}, {}, UnitQueryParams>,
+  req: Request<Record<string, never>, Record<string, never>, Record<string, never>, UnitQueryParams>,
   res: Response
 ): Promise<void> => {
   try {
@@ -71,7 +66,7 @@ export const getUnitById = async (
 };
 
 export const createUnit = async (
-  req: Request<{}, {}, CreateUnitRequest>,
+  req: Request<Record<string, never>, Record<string, never>, CreateUnitRequest>,
   res: Response
 ): Promise<void> => {
   try {
@@ -103,7 +98,7 @@ export const createUnit = async (
 };
 
 export const updateUnit = async (
-  req: Request<{ id: string }, {}, UpdateUnitRequest>,
+  req: Request<{ id: string }, Record<string, never>, UpdateUnitRequest>,
   res: Response
 ): Promise<void> => {
   try {

@@ -1,10 +1,9 @@
-import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import connectDB from '@/lib/mongodb'
 import { User } from '../../models/User.js'
 
-export const authOptions: NextAuthOptions = {
+export const authOptions = {
   
   providers: [
     // Email/Password authentication
@@ -70,7 +69,11 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
 
-    async jwt({ token, user, account: _account }) {
+    async jwt({ token, user, account: _account }: { 
+      token: Record<string, unknown>; 
+      user?: { role: string; username: string; isActive: boolean }; 
+      account?: Record<string, unknown> 
+    }) {
       if (user) {
         // Store user info in JWT token
         token.role = user.role
@@ -81,7 +84,10 @@ export const authOptions: NextAuthOptions = {
       return token
     },
 
-    async session({ session, token }) {
+    async session({ session, token }: { 
+      session: { user: Record<string, unknown> }; 
+      token: Record<string, unknown> & { sub?: string } 
+    }) {
       if (token) {
         // Add custom fields to session
         session.user.id = token.sub!

@@ -74,7 +74,7 @@ export interface ISupplier extends Document {
   migrationData?: {
     source?: string
     importedAt?: Date
-    originalData?: Map<string, any>
+    originalData?: Map<string, unknown>
   }
   
   // Timestamps

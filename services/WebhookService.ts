@@ -56,7 +56,7 @@ export class WebhookService {
   async processFluentFormIntake(payload: FluentFormWebhookPayload): Promise<WebhookProcessingResult> {
     try {
       // Validate webhook payload structure
-      const validatedPayload = validateWebhookPayload(payload);
+      const validatedPayload = validateWebhookPayload(payload) as FluentFormWebhookPayload;
       
       // Extract and map patient data from webhook payload
       const patientData = this.mapWebhookToPatient(validatedPayload);

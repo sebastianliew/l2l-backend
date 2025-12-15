@@ -11,6 +11,7 @@
       "Bash(rm:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npx tsc:*)",
+      "Bash(npm run typecheck:*)",
       "Bash(npm run lint)"
     ],
     "deny": [],

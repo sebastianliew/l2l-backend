@@ -49,15 +49,13 @@ emailService.isEnabled();
 
 // Type for environment variables
 declare global {
-  namespace NodeJS {
-    interface ProcessEnv {
-      BACKEND_PORT?: string;
-      MONGODB_URI?: string;
-      FRONTEND_URL?: string;
-      readonly NODE_ENV: 'development' | 'production' | 'test';
-      JWT_SECRET?: string;
-      REFRESH_TOKEN_SECRET?: string;
-    }
+  interface ProcessEnv {
+    BACKEND_PORT?: string;
+    MONGODB_URI?: string;
+    FRONTEND_URL?: string;
+    readonly NODE_ENV: 'development' | 'production' | 'test';
+    JWT_SECRET?: string;
+    REFRESH_TOKEN_SECRET?: string;
   }
 }
 

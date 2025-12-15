@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Phone number validation schema
 export const phoneSchema = z.string()
   .min(1, 'Phone number is required')
-  .regex(/^[+\d\s\-\(\)]+$/, 'Invalid phone number format')
+  .regex(/^[+\d\s()-]+$/, 'Invalid phone number format')
   .transform((val) => val.replace(/[^\d+]/g, '')) // Remove formatting
   .refine((val) => val.length >= 8 && val.length <= 20, {
     message: 'Phone number must be between 8 and 20 digits'
@@ -162,7 +162,7 @@ export const webhookPatientDataSchema = z.object({
     .refine((val) => {
       if (!val) return true;
       // Allow various postal code formats
-      return /^[\d\w\s\-]{3,20}$/i.test(val);
+      return /^[\d\w\s-]{3,20}$/i.test(val);
     }, {
       message: 'Invalid postal code format'
     })
@@ -189,10 +189,10 @@ export const fluentFormWebhookPayloadSchema = z.object({
   updated_at: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/, 'Invalid datetime format').optional().or(z.literal('')),
   
   // Form response data - flexible structure
-  response: z.record(z.string(), z.any()).optional(),
+  response: z.record(z.string(), z.unknown()).optional(),
   
   // Allow additional fields for flexibility
-}).catchall(z.any()).refine((data) => {
+}).catchall(z.unknown()).refine((data) => {
   // Must have either response object or direct field data
   return data.response || Object.keys(data).some(key => !['form_id', 'serial_number', 'source_url', 'user_id', 'browser', 'device', 'ip', 'created_at', 'updated_at'].includes(key));
 }, {
@@ -240,14 +240,14 @@ export type WebhookConfig = z.infer<typeof webhookConfigSchema>;
 export type FormFieldMapping = z.infer<typeof formFieldMappingSchema>;
 
 // Validation utilities
-export const validateWebhookPayload = (data: any) => fluentFormWebhookPayloadSchema.parse(data);
-export const validatePatientData = (data: any) => webhookPatientDataSchema.parse(data);
-export const validateWebhookSecurity = (data: any) => webhookSecuritySchema.parse(data);
+export const validateWebhookPayload = (data: unknown) => fluentFormWebhookPayloadSchema.parse(data);
+export const validatePatientData = (data: unknown) => webhookPatientDataSchema.parse(data);
+export const validateWebhookSecurity = (data: unknown) => webhookSecuritySchema.parse(data);
 
 // Sanitization utilities
 export const sanitizeString = (str: string): string => {
   return str
-    .replace(/[<>\"']/g, '') // Remove potentially dangerous characters
+    .replace(/[<>"']/g, '') // Remove potentially dangerous characters
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
 };
@@ -256,12 +256,12 @@ export const sanitizeEmail = (email: string): string => {
   return email
     .toLowerCase()
     .trim()
-    .replace(/[<>\"']/g, '');
+    .replace(/[<>"']/g, '');
 };
 
 export const sanitizePhone = (phone: string): string => {
   return phone
-    .replace(/[^\d+\-\s\(\)]/g, '') // Keep only digits, +, -, space, parentheses
+    .replace(/[^\d+\s()-]/g, '') // Keep only digits, +, -, space, parentheses
     .replace(/\s+/g, ' ')
     .trim();
 };

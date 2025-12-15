@@ -1,6 +1,5 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
-import path from 'path';
 import QRCode from 'qrcode';
 
 interface InvoiceItem {

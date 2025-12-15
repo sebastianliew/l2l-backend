@@ -4,6 +4,7 @@ import { ReportsController } from '../controllers/reports.controller.js';
 import { SalesTrendsController } from '../controllers/reports/salesTrendsController.js';
 import { CustomerValueController } from '../controllers/reports/customerValueController.js';
 import { InventoryAnalysisController } from '../controllers/reports/InventoryAnalysisController.js';
+import { InventoryCostController } from '../controllers/reports/InventoryCostController.js';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 
 const router: Router = express.Router();
@@ -81,8 +82,14 @@ router.get('/customer-value', async (req: Request, res: Response) => {
 // Inventory Analysis Report endpoint
 router.get('/inventory-analysis', InventoryAnalysisController.getInventoryReport);
 
-// Inventory Analysis endpoint
-router.get('/inventory-analysis', ReportsController.getInventoryAnalysis);
+// Inventory Cost Report endpoint  
+router.get('/inventory-cost', async (req: Request, res: Response) => {
+  try {
+    await InventoryCostController.getInventoryCostReport(req as unknown as Parameters<typeof InventoryCostController.getInventoryCostReport>[0], res as Parameters<typeof InventoryCostController.getInventoryCostReport>[1]);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // TODO: Add other report endpoints here
 // router.get('/customer-insights', CustomerInsightsController.getCustomerInsights);

@@ -177,7 +177,7 @@ export class RestockService {
     private notificationService: IRestockNotificationService = new NoOpNotificationService()
   ) {}
 
-  async restockProduct(operation: RestockOperation, createdBy: string): Promise<RestockResult> {
+  async restockProduct(operation: RestockOperation, _createdBy: string): Promise<RestockResult> {
     try {
       const product = await this.inventoryRepository.findProductById(operation.productId);
       
@@ -248,7 +248,7 @@ export class RestockService {
     }
   }
 
-  async bulkRestock(request: BulkRestockRequest, createdBy: string): Promise<BulkRestockResult> {
+  async bulkRestock(request: BulkRestockRequest, _createdBy: string): Promise<BulkRestockResult> {
     // TODO: Implement RestockBatch functionality
     const batchId = `BATCH-${Date.now()}`;
     const batch = {
@@ -256,9 +256,9 @@ export class RestockService {
       batchId,
       save: async () => {},
       markAsProcessing: async () => {},
-      addMovement: async (id: Types.ObjectId) => {},
+      addMovement: async (_id: Types.ObjectId) => {},
       markAsCompleted: async () => {},
-      markAsFailed: async (reason: string) => {}
+      markAsFailed: async (_reason: string) => {}
     };
 
     const results: RestockResult[] = [];
@@ -267,7 +267,7 @@ export class RestockService {
 
     try {
       for (const operation of request.operations) {
-        const result = await this.restockProduct(operation, createdBy);
+        const result = await this.restockProduct(operation, _createdBy);
         results.push(result);
 
         if (result.success) {
@@ -390,7 +390,7 @@ export class RestockService {
       .limit(limit);
   }
 
-  async getBatchHistory(limit: number = 20) {
+  async getBatchHistory(_limit: number = 20) {
     // TODO: Implement RestockBatch query
     return [];
   }

@@ -2,7 +2,7 @@
   "name": "l2l-backend",
   "version": "1.0.0",
   "description": "L2L Backend API Server",
-  "main": "server.js",
+  "main": "dist/server.js",
   "type": "module",
   "scripts": {
     "start": "node dist/server.js",

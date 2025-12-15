@@ -8,6 +8,7 @@
     "start": "node dist/server.js",
     "dev": "tsx watch server.ts",
     "build": "tsc",
+    "render-build": "pnpm install --frozen-lockfile && pnpm build",
     "test": "jest --passWithNoTests",
     "lint": "eslint . --ext .ts,.tsx",
     "type:check": "tsc --noEmit"

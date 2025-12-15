@@ -1,4 +1,5 @@
 import mongoose, { Document, Model } from 'mongoose';
+import crypto from 'crypto';
 
 // Blend ingredient interface
 interface IBlendIngredient {
@@ -220,7 +221,6 @@ CustomBlendHistorySchema.index({ signatureHash: 1, customerId: 1 });
 CustomBlendHistorySchema.pre('save', function(next) {
   // Calculate signature hash if not already set
   if (!this.signatureHash && this.ingredients && this.ingredients.length > 0) {
-    const crypto = require('crypto');
     
     // Create a consistent string representation of ingredients
     const ingredientString = this.ingredients
@@ -264,7 +264,6 @@ CustomBlendHistorySchema.methods.recordUsage = async function() {
 
 // Method to calculate signature hash for blend ingredients
 CustomBlendHistorySchema.methods.calculateSignature = function() {
-  const crypto = require('crypto');
   
   // Create a consistent string representation of ingredients
   const ingredientString = this.ingredients

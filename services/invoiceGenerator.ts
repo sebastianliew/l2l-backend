@@ -50,9 +50,9 @@ export class InvoiceGenerator {
   }
 
   async generateInvoice(data: InvoiceData, outputPath: string): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      const stream = fs.createWriteStream(outputPath);
-
+    const stream = fs.createWriteStream(outputPath);
+    
+    return new Promise((resolve, reject) => {
       stream.on('finish', () => {
         console.log('[InvoiceGenerator] PDF created successfully:', outputPath);
         resolve();
@@ -65,21 +65,24 @@ export class InvoiceGenerator {
 
       this.doc.pipe(stream);
 
-      try {
-        // Generate invoice content
-        this.addHeader(data);
-        this.addCustomerAndPaymentInfo(data);
-        this.addItemsTable(data);
-        this.addTotals(data);
-        this.addPaymentStatusBox(data);
-        await this.addPaymentRequiredBox(data);
-        this.addFooter(data);
+      // Handle async operations separately
+      (async () => {
+        try {
+          // Generate invoice content
+          this.addHeader(data);
+          this.addCustomerAndPaymentInfo(data);
+          this.addItemsTable(data);
+          this.addTotals(data);
+          this.addPaymentStatusBox(data);
+          await this.addPaymentRequiredBox(data);
+          this.addFooter(data);
 
-        this.doc.end();
-      } catch (error) {
-        console.error('[InvoiceGenerator] Error generating invoice content:', error);
-        reject(error);
-      }
+          this.doc.end();
+        } catch (error) {
+          console.error('[InvoiceGenerator] Error generating invoice content:', error);
+          reject(error);
+        }
+      })();
     });
   }
 

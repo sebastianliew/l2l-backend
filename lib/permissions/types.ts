@@ -37,8 +37,11 @@ export interface UserManagementPermissions {
   canEditUsers: boolean;
   canDeleteUsers: boolean;
   canAssignRoles: boolean;
+  canChangeRoles: boolean;  // Alias for canAssignRoles - kept for frontend compatibility
   canManagePermissions: boolean;
+  canResetPasswords: boolean;
   canViewSecurityLogs: boolean;
+  canViewAuditLogs: boolean;  // Alias for canViewSecurityLogs - kept for frontend compatibility
   [key: string]: boolean | number;
 }
 
@@ -82,6 +85,7 @@ export interface BlendPermissions {
   canCreateFixedBlends: boolean;
   canEditFixedBlends: boolean;
   canDeleteFixedBlends: boolean;
+  canViewFixedBlends: boolean;
   canCreateCustomBlends: boolean;
   [key: string]: boolean | number;
 }

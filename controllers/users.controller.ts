@@ -143,18 +143,16 @@ export const createUser = async (req: Request, res: Response): Promise<Response 
 
     // Handle permissions
     if (featurePermissions || discountPermissions) {
-      userData.featurePermissions = {};
-      
-      if (featurePermissions) {
-        userData.featurePermissions = featurePermissions;
-      }
-      
+      const permissions = featurePermissions ? { ...featurePermissions } : {};
+
       if (discountPermissions) {
-        userData.featurePermissions.discounts = {
+        permissions.discounts = {
           ...(featurePermissions?.discounts || {}),
           ...discountPermissions
         };
       }
+
+      userData.featurePermissions = permissions;
     }
 
     // Create user

@@ -59,18 +59,11 @@ export class PermissionService {
           const userPerms = user.featurePermissions![category as keyof FeaturePermissions] as PermissionCategory;
           const merged: Record<string, unknown> = { ...roleDefaults };
           
-          // For each permission in the category, use the more permissive value
+          // For each permission in the category, user overrides take precedence
           Object.keys(userPerms).forEach(perm => {
-            if (typeof userPerms[perm] === 'boolean') {
-              // For boolean permissions, true overrides false
-              merged[perm] = (roleDefaults[perm] as boolean) || (userPerms[perm] as boolean);
-            } else if (typeof userPerms[perm] === 'number') {
-              // For numeric permissions (like max amounts), use the higher value
-              merged[perm] = Math.max((roleDefaults[perm] as number) || 0, (userPerms[perm] as number) || 0);
-            } else {
-              // For other types, use the user permission
-              merged[perm] = userPerms[perm];
-            }
+            // User override takes precedence over role default
+            // This allows turning OFF permissions or reducing limits below role defaults
+            merged[perm] = userPerms[perm];
           });
           
           (effectivePermissions as Record<string, unknown>)[category] = merged;

@@ -149,14 +149,17 @@ userSchema.methods.hasPermission = function(category: string, permission: string
   if (this.role === 'super_admin') {
     return true;
   }
-  
-  // Check feature permissions
-  if (this.featurePermissions && 
-      this.featurePermissions[category] && 
-      this.featurePermissions[category][permission]) {
-    return true;
+
+  // Check if user has an explicit override for this permission
+  if (this.featurePermissions &&
+      this.featurePermissions[category] &&
+      permission in this.featurePermissions[category]) {
+    const value = this.featurePermissions[category][permission];
+    // Return the boolean value (explicit true or false)
+    return typeof value === 'boolean' ? value : !!value;
   }
-  
+
+  // No explicit permission set - return false (conservative default)
   return false;
 };
 

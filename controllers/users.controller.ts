@@ -1,7 +1,19 @@
 import { Request, Response } from 'express';
-import { User } from '@models/User.js';
+import { User, IUser } from '@models/User.js';
 import bcrypt from 'bcryptjs';
 import { AuthenticatedRequest } from '@backend/middlewares/auth.middleware.js';
+import { FilterQuery } from 'mongoose';
+
+// Type for user creation/update data
+type UserData = Partial<Pick<IUser,
+  'username' | 'email' | 'password' | 'role' | 'isActive' | 'name' |
+  'firstName' | 'lastName' | 'displayName' | 'featurePermissions'
+>> & {
+  phone?: string;
+  address?: string;
+  status?: string;
+  dateOfBirth?: Date;
+};
 
 export const getAllUsers = async (req: Request, res: Response): Promise<Response | void> => {
   try {
@@ -19,7 +31,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<Response
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const query: any = {};
+    const query: FilterQuery<IUser> = {};
 
     if (search) {
       query.$or = [
@@ -36,7 +48,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<Response
       query.status = status;
     }
 
-    const sortOptions: any = {};
+    const sortOptions: Record<string, 1 | -1> = {};
     sortOptions[sortBy as string] = sortOrder === 'asc' ? 1 : -1;
 
     const [users, totalCount] = await Promise.all([
@@ -116,7 +128,7 @@ export const createUser = async (req: Request, res: Response): Promise<Response 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Build user data
-    const userData: any = {
+    const userData: UserData = {
       username,
       email,
       password: hashedPassword,
@@ -131,18 +143,16 @@ export const createUser = async (req: Request, res: Response): Promise<Response 
 
     // Handle permissions
     if (featurePermissions || discountPermissions) {
-      userData.featurePermissions = {};
-      
-      if (featurePermissions) {
-        userData.featurePermissions = featurePermissions;
-      }
-      
+      const permissions = featurePermissions ? { ...featurePermissions } : {};
+
       if (discountPermissions) {
-        userData.featurePermissions.discounts = {
+        permissions.discounts = {
           ...(featurePermissions?.discounts || {}),
           ...discountPermissions
         };
       }
+
+      userData.featurePermissions = permissions;
     }
 
     // Create user
@@ -236,7 +246,7 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
     }
 
     // Build update data with all fields
-    const updateData: any = {};
+    const updateData: UserData = {};
     
     // Handle name fields
     if (firstName !== undefined) updateData.firstName = firstName;
@@ -256,7 +266,7 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
     // Handle other fields
     if (username !== undefined) updateData.username = username;
     if (email !== undefined) updateData.email = email;
-    if (role !== undefined) updateData.role = role;
+    if (role !== undefined && role !== '') updateData.role = role;
     if (displayName !== undefined) updateData.displayName = displayName;
     if (isActive !== undefined) updateData.isActive = isActive;
     
@@ -375,24 +385,31 @@ export const updateUserPassword = async (req: Request, res: Response): Promise<R
       });
     }
 
+    // Check if user exists first
     const user = await User.findById(id);
-
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check authorization
     const currentUser = (req as AuthenticatedRequest).user;
     if (!currentUser) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
     if (currentUser._id?.toString() !== id && currentUser.role !== 'super_admin' && currentUser.role !== 'admin') {
-      return res.status(403).json({ 
-        error: 'You can only change your own password' 
+      return res.status(403).json({
+        error: 'You can only change your own password'
       });
     }
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    // Use findByIdAndUpdate to directly update the password field
+    // This avoids issues with the password field having select: false
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.findByIdAndUpdate(
+      id,
+      { password: hashedPassword },
+      { runValidators: true }
+    );
 
     return res.json({
       message: 'Password updated successfully',

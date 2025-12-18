@@ -1,5 +1,6 @@
 import express, { Router } from 'express';
-import { authenticateToken, requireRole } from '../middlewares/auth.middleware.js';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { requirePermission } from '../middlewares/permission.middleware.js';
 import {
   getBrands,
   getBrandById,
@@ -10,13 +11,16 @@ import {
 
 const router: Router = express.Router();
 
-// All brand access requires authentication for business security
-router.get('/', authenticateToken, getBrands);
-router.get('/:id', authenticateToken, getBrandById);
+// Apply authentication to all routes
+router.use(authenticateToken);
 
-// Protected routes
-router.post('/', authenticateToken, requireRole(['admin', 'super_admin']), createBrand);
-router.put('/:id', authenticateToken, requireRole(['admin', 'super_admin']), updateBrand);
-router.delete('/:id', authenticateToken, requireRole(['admin', 'super_admin']), deleteBrand);
+// View routes - use inventory permissions since brands are part of inventory management
+router.get('/', requirePermission('inventory', 'canViewInventory'), getBrands);
+router.get('/:id', requirePermission('inventory', 'canViewInventory'), getBrandById);
+
+// Write routes - use inventory permissions since brands are part of inventory management
+router.post('/', requirePermission('inventory', 'canAddProducts'), createBrand);
+router.put('/:id', requirePermission('inventory', 'canEditProducts'), updateBrand);
+router.delete('/:id', requirePermission('inventory', 'canDeleteProducts'), deleteBrand);
 
 export default router;

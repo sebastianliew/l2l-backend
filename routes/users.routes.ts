@@ -8,24 +8,25 @@ import {
   updateUserPassword,
   deleteUser,
 } from '@backend/controllers/users.controller.js';
-import { authenticateToken, requireRole } from '@backend/middlewares/auth.middleware.js';
+import { authenticateToken } from '@backend/middlewares/auth.middleware.js';
+import { requirePermission } from '../middlewares/permission.middleware.js';
 
 const router = Router();
 
 router.use(authenticateToken);
 
-router.get('/', requireRole(['super_admin', 'admin', 'manager']), getAllUsers);
+router.get('/', requirePermission('userManagement', 'canViewUsers'), getAllUsers);
 
-router.post('/', requireRole(['super_admin', 'admin']), createUser);
+router.post('/', requirePermission('userManagement', 'canCreateUsers'), createUser);
 
-router.get('/:id', requireRole(['super_admin', 'admin', 'manager', 'staff']), getUserById);
+router.get('/:id', requirePermission('userManagement', 'canViewUsers'), getUserById);
 
-router.put('/:id', requireRole(['super_admin', 'admin']), updateUser);
+router.put('/:id', requirePermission('userManagement', 'canEditUsers'), updateUser);
 
-router.patch('/:id/role', requireRole(['super_admin', 'admin']), updateUserRole);
+router.patch('/:id/role', requirePermission('userManagement', 'canEditUsers'), updateUserRole);
 
-router.patch('/:id/password', authenticateToken, updateUserPassword);
+router.patch('/:id/password', updateUserPassword);
 
-router.delete('/:id', requireRole(['super_admin', 'admin']), deleteUser);
+router.delete('/:id', requirePermission('userManagement', 'canDeleteUsers'), deleteUser);
 
 export default router;

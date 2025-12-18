@@ -41,6 +41,7 @@ export class PermissionService {
             canExportReports: true
           },
           inventory: {
+            canViewInventory: true,
             canAddProducts: true,
             canEditProducts: true,
             canDeleteProducts: false,
@@ -50,6 +51,7 @@ export class PermissionService {
             canEditCostPrices: true
           },
           userManagement: {
+            canViewUsers: false,
             canCreateUsers: false,
             canEditUsers: false,
             canDeleteUsers: false,
@@ -69,6 +71,7 @@ export class PermissionService {
             canAccessAllPatients: true
           },
           transactions: {
+            canViewTransactions: true,
             canCreateTransactions: true,
             canEditTransactions: true,
             canDeleteTransactions: false,
@@ -77,6 +80,7 @@ export class PermissionService {
             canViewFinancialDetails: true
           },
           bundles: {
+            canViewBundles: true,
             canCreateBundles: true,
             canEditBundles: true,
             canDeleteBundles: false,
@@ -110,6 +114,7 @@ export class PermissionService {
             canExportReports: false
           },
           inventory: {
+            canViewInventory: true,
             canAddProducts: false,
             canEditProducts: false,
             canDeleteProducts: false,
@@ -119,6 +124,7 @@ export class PermissionService {
             canEditCostPrices: false
           },
           userManagement: {
+            canViewUsers: false,
             canCreateUsers: false,
             canEditUsers: false,
             canDeleteUsers: false,
@@ -138,6 +144,7 @@ export class PermissionService {
             canAccessAllPatients: true
           },
           transactions: {
+            canViewTransactions: true,
             canCreateTransactions: true,
             canEditTransactions: false,
             canDeleteTransactions: false,
@@ -146,6 +153,7 @@ export class PermissionService {
             canViewFinancialDetails: true
           },
           bundles: {
+            canViewBundles: true,
             canCreateBundles: false,
             canEditBundles: false,
             canDeleteBundles: false,
@@ -179,6 +187,7 @@ export class PermissionService {
             canExportReports: true
           },
           inventory: {
+            canViewInventory: true,
             canAddProducts: false,
             canEditProducts: false,
             canDeleteProducts: false,
@@ -188,6 +197,7 @@ export class PermissionService {
             canEditCostPrices: false
           },
           userManagement: {
+            canViewUsers: false,
             canCreateUsers: false,
             canEditUsers: false,
             canDeleteUsers: false,
@@ -207,6 +217,7 @@ export class PermissionService {
             canAccessAllPatients: true
           },
           transactions: {
+            canViewTransactions: true,
             canCreateTransactions: true,
             canEditTransactions: true,
             canDeleteTransactions: true,
@@ -215,6 +226,7 @@ export class PermissionService {
             canViewFinancialDetails: true
           },
           bundles: {
+            canViewBundles: true,
             canCreateBundles: false,
             canEditBundles: false,
             canDeleteBundles: false,
@@ -248,6 +260,7 @@ export class PermissionService {
             canExportReports: true
           },
           inventory: {
+            canViewInventory: false,
             canAddProducts: false,
             canEditProducts: false,
             canDeleteProducts: false,
@@ -257,6 +270,7 @@ export class PermissionService {
             canEditCostPrices: false
           },
           userManagement: {
+            canViewUsers: true,
             canCreateUsers: true,
             canEditUsers: true,
             canDeleteUsers: true,
@@ -276,6 +290,7 @@ export class PermissionService {
             canAccessAllPatients: false
           },
           transactions: {
+            canViewTransactions: false,
             canCreateTransactions: false,
             canEditTransactions: false,
             canDeleteTransactions: false,
@@ -284,6 +299,7 @@ export class PermissionService {
             canViewFinancialDetails: false
           },
           bundles: {
+            canViewBundles: false,
             canCreateBundles: false,
             canEditBundles: false,
             canDeleteBundles: false,
@@ -415,11 +431,11 @@ export class PermissionService {
       super_admin: {
         discounts: { canApplyProductDiscounts: true, canApplyBillDiscounts: true, maxDiscountPercent: 100, maxDiscountAmount: 999999, unlimitedDiscounts: true },
         reports: { canViewFinancialReports: true, canViewInventoryReports: true, canViewUserReports: true, canViewSecurityMetrics: true, canExportReports: true },
-        inventory: { canAddProducts: true, canEditProducts: true, canDeleteProducts: true, canManageStock: true, canCreateRestockOrders: true, canBulkOperations: true, canEditCostPrices: true },
-        userManagement: { canCreateUsers: true, canEditUsers: true, canDeleteUsers: true, canAssignRoles: true, canChangeRoles: true, canManagePermissions: true, canResetPasswords: true, canViewSecurityLogs: true, canViewAuditLogs: true },
+        inventory: { canViewInventory: true, canAddProducts: true, canEditProducts: true, canDeleteProducts: true, canManageStock: true, canCreateRestockOrders: true, canBulkOperations: true, canEditCostPrices: true },
+        userManagement: { canViewUsers: true, canCreateUsers: true, canEditUsers: true, canDeleteUsers: true, canAssignRoles: true, canChangeRoles: true, canManagePermissions: true, canResetPasswords: true, canViewSecurityLogs: true, canViewAuditLogs: true },
         patients: { canCreatePatients: true, canEditPatients: true, canDeletePatients: true, canViewMedicalHistory: true, canManagePrescriptions: true, canAccessAllPatients: true },
-        transactions: { canCreateTransactions: true, canEditTransactions: true, canDeleteTransactions: true, canApplyDiscounts: true, canRefundTransactions: true, canViewFinancialDetails: true },
-        bundles: { canCreateBundles: true, canEditBundles: true, canDeleteBundles: true, canSetPricing: true },
+        transactions: { canViewTransactions: true, canCreateTransactions: true, canEditTransactions: true, canDeleteTransactions: true, canApplyDiscounts: true, canRefundTransactions: true, canViewFinancialDetails: true },
+        bundles: { canViewBundles: true, canCreateBundles: true, canEditBundles: true, canDeleteBundles: true, canSetPricing: true },
         suppliers: { canManageSuppliers: true, canCreateSuppliers: true, canEditSuppliers: true, canDeleteSuppliers: true },
         blends: { canCreateFixedBlends: true, canEditFixedBlends: true, canDeleteFixedBlends: true, canViewFixedBlends: true, canCreateCustomBlends: true },
         prescriptions: { canCreatePrescriptions: true, canEditPrescriptions: true, canDeletePrescriptions: true, canViewAllPrescriptions: true, canPrintPrescriptions: true, canManageTemplates: true },
@@ -436,11 +452,11 @@ export class PermissionService {
       admin: {
         discounts: { canApplyProductDiscounts: true, canApplyBillDiscounts: true, maxDiscountPercent: 50, maxDiscountAmount: 1000, unlimitedDiscounts: false },
         reports: { canViewFinancialReports: true, canViewInventoryReports: true, canViewUserReports: true, canViewSecurityMetrics: false, canExportReports: true },
-        inventory: { canAddProducts: true, canEditProducts: true, canDeleteProducts: true, canManageStock: true, canCreateRestockOrders: true, canBulkOperations: true, canEditCostPrices: false }, // Cost prices restricted to super_admin only
-        userManagement: { canCreateUsers: true, canEditUsers: true, canDeleteUsers: false, canAssignRoles: false, canChangeRoles: false, canManagePermissions: false, canResetPasswords: true, canViewSecurityLogs: true, canViewAuditLogs: true },
+        inventory: { canViewInventory: true, canAddProducts: true, canEditProducts: true, canDeleteProducts: true, canManageStock: true, canCreateRestockOrders: true, canBulkOperations: true, canEditCostPrices: false }, // Cost prices restricted to super_admin only
+        userManagement: { canViewUsers: true, canCreateUsers: true, canEditUsers: true, canDeleteUsers: false, canAssignRoles: false, canChangeRoles: false, canManagePermissions: false, canResetPasswords: true, canViewSecurityLogs: true, canViewAuditLogs: true },
         patients: { canCreatePatients: true, canEditPatients: true, canDeletePatients: true, canViewMedicalHistory: true, canManagePrescriptions: true, canAccessAllPatients: true },
-        transactions: { canCreateTransactions: true, canEditTransactions: true, canDeleteTransactions: false, canApplyDiscounts: true, canRefundTransactions: true, canViewFinancialDetails: true },
-        bundles: { canCreateBundles: false, canEditBundles: false, canDeleteBundles: false, canSetPricing: false },
+        transactions: { canViewTransactions: true, canCreateTransactions: true, canEditTransactions: true, canDeleteTransactions: false, canApplyDiscounts: true, canRefundTransactions: true, canViewFinancialDetails: true },
+        bundles: { canViewBundles: true, canCreateBundles: true, canEditBundles: true, canDeleteBundles: false, canSetPricing: true },
         suppliers: { canManageSuppliers: false, canCreateSuppliers: false, canEditSuppliers: false, canDeleteSuppliers: false },
         blends: { canCreateFixedBlends: false, canEditFixedBlends: false, canDeleteFixedBlends: false, canViewFixedBlends: true, canCreateCustomBlends: false },
         prescriptions: { canCreatePrescriptions: true, canEditPrescriptions: true, canDeletePrescriptions: false, canViewAllPrescriptions: true, canPrintPrescriptions: true, canManageTemplates: false },
@@ -457,11 +473,11 @@ export class PermissionService {
       manager: {
         discounts: { canApplyProductDiscounts: true, canApplyBillDiscounts: true, maxDiscountPercent: 25, maxDiscountAmount: 500, unlimitedDiscounts: false },
         reports: { canViewFinancialReports: true, canViewInventoryReports: true, canViewUserReports: false, canViewSecurityMetrics: false, canExportReports: true },
-        inventory: { canAddProducts: true, canEditProducts: true, canDeleteProducts: false, canManageStock: true, canCreateRestockOrders: true, canBulkOperations: false, canEditCostPrices: false }, // Cost prices restricted to super_admin only
-        userManagement: { canCreateUsers: false, canEditUsers: false, canDeleteUsers: false, canAssignRoles: false, canChangeRoles: false, canManagePermissions: false, canResetPasswords: false, canViewSecurityLogs: false, canViewAuditLogs: false },
+        inventory: { canViewInventory: true, canAddProducts: true, canEditProducts: true, canDeleteProducts: false, canManageStock: true, canCreateRestockOrders: true, canBulkOperations: false, canEditCostPrices: false }, // Cost prices restricted to super_admin only
+        userManagement: { canViewUsers: true, canCreateUsers: false, canEditUsers: false, canDeleteUsers: false, canAssignRoles: false, canChangeRoles: false, canManagePermissions: false, canResetPasswords: false, canViewSecurityLogs: false, canViewAuditLogs: false },
         patients: { canCreatePatients: true, canEditPatients: true, canDeletePatients: false, canViewMedicalHistory: true, canManagePrescriptions: true, canAccessAllPatients: true },
-        transactions: { canCreateTransactions: true, canEditTransactions: true, canDeleteTransactions: false, canApplyDiscounts: true, canRefundTransactions: false, canViewFinancialDetails: true },
-        bundles: { canCreateBundles: false, canEditBundles: false, canDeleteBundles: false, canSetPricing: false },
+        transactions: { canViewTransactions: true, canCreateTransactions: true, canEditTransactions: true, canDeleteTransactions: false, canApplyDiscounts: true, canRefundTransactions: false, canViewFinancialDetails: true },
+        bundles: { canViewBundles: true, canCreateBundles: false, canEditBundles: false, canDeleteBundles: false, canSetPricing: false },
         suppliers: { canManageSuppliers: true, canCreateSuppliers: false, canEditSuppliers: false, canDeleteSuppliers: false },
         blends: { canCreateFixedBlends: false, canEditFixedBlends: false, canDeleteFixedBlends: false, canViewFixedBlends: true, canCreateCustomBlends: true },
         prescriptions: { canCreatePrescriptions: true, canEditPrescriptions: true, canDeletePrescriptions: false, canViewAllPrescriptions: true, canPrintPrescriptions: true, canManageTemplates: false },
@@ -478,11 +494,11 @@ export class PermissionService {
       staff: {
         discounts: { canApplyProductDiscounts: false, canApplyBillDiscounts: true, maxDiscountPercent: 10, maxDiscountAmount: 100, unlimitedDiscounts: false },
         reports: { canViewFinancialReports: false, canViewInventoryReports: false, canViewUserReports: false, canViewSecurityMetrics: false, canExportReports: false },
-        inventory: { canAddProducts: false, canEditProducts: false, canDeleteProducts: false, canManageStock: false, canCreateRestockOrders: false, canBulkOperations: false, canEditCostPrices: false },
-        userManagement: { canCreateUsers: false, canEditUsers: false, canDeleteUsers: false, canAssignRoles: false, canChangeRoles: false, canManagePermissions: false, canResetPasswords: false, canViewSecurityLogs: false, canViewAuditLogs: false },
+        inventory: { canViewInventory: true, canAddProducts: false, canEditProducts: false, canDeleteProducts: false, canManageStock: false, canCreateRestockOrders: false, canBulkOperations: false, canEditCostPrices: false },
+        userManagement: { canViewUsers: false, canCreateUsers: false, canEditUsers: false, canDeleteUsers: false, canAssignRoles: false, canChangeRoles: false, canManagePermissions: false, canResetPasswords: false, canViewSecurityLogs: false, canViewAuditLogs: false },
         patients: { canCreatePatients: true, canEditPatients: false, canDeletePatients: false, canViewMedicalHistory: false, canManagePrescriptions: false, canAccessAllPatients: true },
-        transactions: { canCreateTransactions: true, canEditTransactions: false, canDeleteTransactions: false, canApplyDiscounts: true, canRefundTransactions: false, canViewFinancialDetails: false },
-        bundles: { canCreateBundles: false, canEditBundles: false, canDeleteBundles: false, canSetPricing: false },
+        transactions: { canViewTransactions: true, canCreateTransactions: true, canEditTransactions: false, canDeleteTransactions: false, canApplyDiscounts: true, canRefundTransactions: false, canViewFinancialDetails: false },
+        bundles: { canViewBundles: true, canCreateBundles: false, canEditBundles: false, canDeleteBundles: false, canSetPricing: false },
         suppliers: { canManageSuppliers: false, canCreateSuppliers: false, canEditSuppliers: false, canDeleteSuppliers: false },
         blends: { canCreateFixedBlends: false, canEditFixedBlends: false, canDeleteFixedBlends: false, canViewFixedBlends: false, canCreateCustomBlends: false },
         prescriptions: { canCreatePrescriptions: false, canEditPrescriptions: false, canDeletePrescriptions: false, canViewAllPrescriptions: false, canPrintPrescriptions: false, canManageTemplates: false },

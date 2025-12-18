@@ -22,6 +22,7 @@ export interface ReportPermissions {
 }
 
 export interface InventoryPermissions {
+  canViewInventory: boolean;  // View inventory list and details
   canAddProducts: boolean;
   canEditProducts: boolean;
   canDeleteProducts: boolean;
@@ -33,6 +34,7 @@ export interface InventoryPermissions {
 }
 
 export interface UserManagementPermissions {
+  canViewUsers: boolean;  // View users list and details
   canCreateUsers: boolean;
   canEditUsers: boolean;
   canDeleteUsers: boolean;
@@ -56,6 +58,7 @@ export interface PatientPermissions {
 }
 
 export interface TransactionPermissions {
+  canViewTransactions: boolean;  // View transactions list and details
   canCreateTransactions: boolean;
   canEditTransactions: boolean;
   canDeleteTransactions: boolean;
@@ -66,6 +69,7 @@ export interface TransactionPermissions {
 }
 
 export interface BundlePermissions {
+  canViewBundles: boolean;  // View bundles list and details
   canCreateBundles: boolean;
   canEditBundles: boolean;
   canDeleteBundles: boolean;

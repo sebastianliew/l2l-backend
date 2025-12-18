@@ -35,6 +35,7 @@ import reportsRoutes from './routes/reports.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import invoicesRoutes from './routes/invoices.routes.js';
 import webhooksRoutes from './routes/webhooks.routes.js';
+import usersRoutes from './routes/users.routes.js';
 
 // Import services to initialize at startup
 import { emailService } from './services/EmailService.js';
@@ -179,6 +180,7 @@ app.get('/health', (_req: Request, res: Response): void => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/brands', brandsRoutes);
 app.use('/api/container-types', containerTypesRoutes);
 app.use('/api/refunds', refundsRoutes);

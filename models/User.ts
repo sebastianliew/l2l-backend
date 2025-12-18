@@ -18,6 +18,8 @@ export interface IUser extends Document {
   username: string;
   password: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   displayName?: string;
   photoURL?: string;
   image?: string | null;
@@ -66,6 +68,14 @@ const userSchema = new Schema<IUser>({
   name: {
     type: String,
     required: true,
+    trim: true
+  },
+  firstName: {
+    type: String,
+    trim: true
+  },
+  lastName: {
+    type: String,
     trim: true
   },
   displayName: {

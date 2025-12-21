@@ -22,6 +22,7 @@ export interface ReportPermissions {
 }
 
 export interface InventoryPermissions {
+  canViewInventory: boolean;  // View inventory list and details
   canAddProducts: boolean;
   canEditProducts: boolean;
   canDeleteProducts: boolean;
@@ -33,12 +34,16 @@ export interface InventoryPermissions {
 }
 
 export interface UserManagementPermissions {
+  canViewUsers: boolean;  // View users list and details
   canCreateUsers: boolean;
   canEditUsers: boolean;
   canDeleteUsers: boolean;
   canAssignRoles: boolean;
+  canChangeRoles: boolean;  // Alias for canAssignRoles - kept for frontend compatibility
   canManagePermissions: boolean;
+  canResetPasswords: boolean;
   canViewSecurityLogs: boolean;
+  canViewAuditLogs: boolean;  // Alias for canViewSecurityLogs - kept for frontend compatibility
   [key: string]: boolean | number;
 }
 
@@ -53,6 +58,7 @@ export interface PatientPermissions {
 }
 
 export interface TransactionPermissions {
+  canViewTransactions: boolean;  // View transactions list and details
   canCreateTransactions: boolean;
   canEditTransactions: boolean;
   canDeleteTransactions: boolean;
@@ -63,6 +69,7 @@ export interface TransactionPermissions {
 }
 
 export interface BundlePermissions {
+  canViewBundles: boolean;  // View bundles list and details
   canCreateBundles: boolean;
   canEditBundles: boolean;
   canDeleteBundles: boolean;
@@ -82,6 +89,7 @@ export interface BlendPermissions {
   canCreateFixedBlends: boolean;
   canEditFixedBlends: boolean;
   canDeleteFixedBlends: boolean;
+  canViewFixedBlends: boolean;
   canCreateCustomBlends: boolean;
   [key: string]: boolean | number;
 }

@@ -1,5 +1,6 @@
 import express, { type IRouter } from 'express';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { requirePermission } from '../middlewares/permission.middleware.js';
 import {
   getRefunds,
   getRefundById,
@@ -20,36 +21,36 @@ const router: IRouter = express.Router();
 router.use(authenticateToken);
 
 // GET /api/refunds - Get all refunds with optional filters
-router.get('/', getRefunds);
+router.get('/', requirePermission('transactions', 'canViewTransactions'), getRefunds);
 
 // GET /api/refunds/statistics - Get refund statistics
-router.get('/statistics', getRefundStatistics);
+router.get('/statistics', requirePermission('transactions', 'canViewTransactions'), getRefundStatistics);
 
 // GET /api/refunds/:id - Get refund by ID
-router.get('/:id', getRefundById);
+router.get('/:id', requirePermission('transactions', 'canViewTransactions'), getRefundById);
 
 // POST /api/refunds - Create new refund
-router.post('/', createRefund);
+router.post('/', requirePermission('transactions', 'canRefundTransactions'), createRefund);
 
 // PUT /api/refunds/:id/approve - Approve refund
-router.put('/:id/approve', approveRefund);
+router.put('/:id/approve', requirePermission('transactions', 'canRefundTransactions'), approveRefund);
 
 // PUT /api/refunds/:id/reject - Reject refund
-router.put('/:id/reject', rejectRefund);
+router.put('/:id/reject', requirePermission('transactions', 'canRefundTransactions'), rejectRefund);
 
 // PUT /api/refunds/:id/process - Process refund (handle inventory)
-router.put('/:id/process', processRefund);
+router.put('/:id/process', requirePermission('transactions', 'canRefundTransactions'), processRefund);
 
 // PUT /api/refunds/:id/complete - Complete refund (finalize payment)
-router.put('/:id/complete', completeRefund);
+router.put('/:id/complete', requirePermission('transactions', 'canRefundTransactions'), completeRefund);
 
 // PUT /api/refunds/:id/cancel - Cancel refund
-router.put('/:id/cancel', cancelRefund);
+router.put('/:id/cancel', requirePermission('transactions', 'canRefundTransactions'), cancelRefund);
 
 // GET /api/refunds/transaction/:transactionId - Get refunds for a transaction
-router.get('/transaction/:transactionId', getTransactionRefunds);
+router.get('/transaction/:transactionId', requirePermission('transactions', 'canViewTransactions'), getTransactionRefunds);
 
 // GET /api/refunds/eligibility/:transactionId - Check refund eligibility for transaction
-router.get('/eligibility/:transactionId', getRefundEligibility);
+router.get('/eligibility/:transactionId', requirePermission('transactions', 'canViewTransactions'), getRefundEligibility);
 
 export default router;

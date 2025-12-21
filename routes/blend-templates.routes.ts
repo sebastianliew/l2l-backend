@@ -1,13 +1,17 @@
 import { Router, Request, Response, type IRouter } from 'express';
 import { BlendTemplateService } from '../services/BlendTemplateService.js';
 import type { CreateBlendTemplateData, TemplateFilters } from '../types/blend.js';
-import { authenticateToken, requireRole } from '../middlewares/auth.middleware.js';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { requirePermission } from '../middlewares/permission.middleware.js';
 
 const router: IRouter = Router();
 const blendTemplateService = new BlendTemplateService();
 
-// GET /api/blend-templates - Get all blend templates with optional filters (public access)
-router.get('/', async (req: Request, res: Response) => {
+// Apply authentication to all routes
+router.use(authenticateToken);
+
+// GET /api/blend-templates - Get all blend templates with optional filters
+router.get('/', requirePermission('blends', 'canViewFixedBlends'), async (req: Request, res: Response) => {
   try {
     const filters: TemplateFilters = {
       isActive: req.query.isActive ? req.query.isActive === 'true' : undefined,
@@ -26,7 +30,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/blend-templates/categories - Get template categories
-router.get('/categories', authenticateToken, async (req: Request, res: Response) => {
+router.get('/categories', requirePermission('blends', 'canViewFixedBlends'), async (req: Request, res: Response) => {
   try {
     const categories = await blendTemplateService.getCategories();
     return res.json(categories);
@@ -40,7 +44,7 @@ router.get('/categories', authenticateToken, async (req: Request, res: Response)
 });
 
 // GET /api/blend-templates/:id - Get single blend template
-router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.get('/:id', requirePermission('blends', 'canViewFixedBlends'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const template = await blendTemplateService.getTemplate(id);
@@ -59,8 +63,8 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/blend-templates - Create new blend template (admin only)
-router.post('/', authenticateToken, requireRole(['admin', 'super_admin']), async (req: Request, res: Response) => {
+// POST /api/blend-templates - Create new blend template
+router.post('/', requirePermission('blends', 'canCreateFixedBlends'), async (req: Request, res: Response) => {
   try {
     const data: CreateBlendTemplateData = req.body;
     
@@ -114,8 +118,8 @@ router.post('/', authenticateToken, requireRole(['admin', 'super_admin']), async
   }
 });
 
-// PUT /api/blend-templates/:id - Update blend template (admin only)
-router.put('/:id', authenticateToken, requireRole(['admin', 'super_admin']), async (req: Request, res: Response) => {
+// PUT /api/blend-templates/:id - Update blend template
+router.put('/:id', requirePermission('blends', 'canEditFixedBlends'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const data = req.body;
@@ -136,8 +140,8 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'super_admin']), asy
   }
 });
 
-// DELETE /api/blend-templates/:id - Delete blend template (admin only)
-router.delete('/:id', authenticateToken, requireRole(['admin', 'super_admin']), async (req: Request, res: Response) => {
+// DELETE /api/blend-templates/:id - Delete blend template
+router.delete('/:id', requirePermission('blends', 'canDeleteFixedBlends'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     

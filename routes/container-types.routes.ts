@@ -1,11 +1,12 @@
 import express, { Request, Response, type IRouter } from 'express';
 import { ContainerType } from '../models/ContainerType.js';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { requirePermission } from '../middlewares/permission.middleware.js';
 
 const router: IRouter = express.Router();
 
 // Apply authentication to all routes
-// TODO: Re-enable auth after frontend auth is properly configured
-// router.use(authenticateToken);
+router.use(authenticateToken);
 
 interface ContainerTypeDocument {
   _id: string;
@@ -42,8 +43,8 @@ const transformContainerType = (containerType: ContainerTypeDocument) => {
   };
 };
 
-// GET /api/container-types - Get all container types
-router.get('/', async (req: Request, res: Response) => {
+// GET /api/container-types - Get all container types (use inventory permissions)
+router.get('/', requirePermission('inventory', 'canViewInventory'), async (req: Request, res: Response) => {
   try {
     const containerTypes = await ContainerType.find()
       .populate('allowedUoms', 'name abbreviation')
@@ -56,8 +57,8 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/container-types - Create a new container type
-router.post('/', async (req: Request, res: Response) => {
+// POST /api/container-types - Create a new container type (use inventory permissions)
+router.post('/', requirePermission('inventory', 'canAddProducts'), async (req: Request, res: Response) => {
   try {
     const data = req.body;
 
@@ -72,8 +73,8 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/container-types/:id - Get a specific container type
-router.get('/:id', async (req: Request, res: Response) => {
+// GET /api/container-types/:id - Get a specific container type (use inventory permissions)
+router.get('/:id', requirePermission('inventory', 'canViewInventory'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const containerType = await ContainerType.findById(id)
@@ -90,8 +91,8 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// PUT /api/container-types/:id - Update a specific container type
-router.put('/:id', async (req: Request, res: Response) => {
+// PUT /api/container-types/:id - Update a specific container type (use inventory permissions)
+router.put('/:id', requirePermission('inventory', 'canEditProducts'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const data = req.body;
@@ -113,8 +114,8 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/container-types/:id - Delete a specific container type
-router.delete('/:id', async (req: Request, res: Response) => {
+// DELETE /api/container-types/:id - Delete a specific container type (use inventory permissions)
+router.delete('/:id', requirePermission('inventory', 'canDeleteProducts'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const containerType = await ContainerType.findByIdAndDelete(id);

@@ -6,14 +6,15 @@ import { CustomerValueController } from '../controllers/reports/customerValueCon
 import { InventoryAnalysisController } from '../controllers/reports/InventoryAnalysisController.js';
 import { InventoryCostController } from '../controllers/reports/InventoryCostController.js';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { requirePermission } from '../middlewares/permission.middleware.js';
 
 const router: Router = express.Router();
 
 // Apply authentication middleware to all report routes
 router.use(authenticateToken);
 
-// Transaction date range endpoint
-router.get('/transaction-date-range', async (req: Request, res: Response) => {
+// Transaction date range endpoint (financial report)
+router.get('/transaction-date-range', requirePermission('reports', 'canViewFinancialReports'), async (req: Request, res: Response) => {
   try {
     const { Transaction } = await import('../models/Transaction.js');
     
@@ -54,8 +55,8 @@ router.get('/transaction-date-range', async (req: Request, res: Response) => {
   }
 });
 
-// Item Sales Report endpoint
-router.get('/item-sales', async (req: Request, res: Response) => {
+// Item Sales Report endpoint (inventory report)
+router.get('/item-sales', requirePermission('reports', 'canViewInventoryReports'), async (req: Request, res: Response) => {
   try {
     
     await ItemSalesController.getItemSalesReport(req as unknown as Parameters<typeof ItemSalesController.getItemSalesReport>[0], res as Parameters<typeof ItemSalesController.getItemSalesReport>[1]);
@@ -64,14 +65,14 @@ router.get('/item-sales', async (req: Request, res: Response) => {
   }
 });
 
-// Revenue Analysis endpoint
-router.get('/revenue-analysis', ReportsController.getRevenueAnalysis);
+// Revenue Analysis endpoint (financial report)
+router.get('/revenue-analysis', requirePermission('reports', 'canViewFinancialReports'), ReportsController.getRevenueAnalysis);
 
-// Sales Trends endpoint
-router.get('/sales-trends', SalesTrendsController.getSalesTrends);
+// Sales Trends endpoint (financial report)
+router.get('/sales-trends', requirePermission('reports', 'canViewFinancialReports'), SalesTrendsController.getSalesTrends);
 
-// Customer Value Report endpoint
-router.get('/customer-value', async (req: Request, res: Response) => {
+// Customer Value Report endpoint (financial report)
+router.get('/customer-value', requirePermission('reports', 'canViewFinancialReports'), async (req: Request, res: Response) => {
   try {
     await CustomerValueController.getCustomerValueReport(req as unknown as Parameters<typeof CustomerValueController.getCustomerValueReport>[0], res as Parameters<typeof CustomerValueController.getCustomerValueReport>[1]);
   } catch (error) {
@@ -79,11 +80,11 @@ router.get('/customer-value', async (req: Request, res: Response) => {
   }
 });
 
-// Inventory Analysis Report endpoint
-router.get('/inventory-analysis', InventoryAnalysisController.getInventoryReport);
+// Inventory Analysis Report endpoint (inventory report)
+router.get('/inventory-analysis', requirePermission('reports', 'canViewInventoryReports'), InventoryAnalysisController.getInventoryReport);
 
-// Inventory Cost Report endpoint  
-router.get('/inventory-cost', async (req: Request, res: Response) => {
+// Inventory Cost Report endpoint (inventory report)
+router.get('/inventory-cost', requirePermission('reports', 'canViewInventoryReports'), async (req: Request, res: Response) => {
   try {
     await InventoryCostController.getInventoryCostReport(req as unknown as Parameters<typeof InventoryCostController.getInventoryCostReport>[0], res as Parameters<typeof InventoryCostController.getInventoryCostReport>[1]);
   } catch (error) {

@@ -6,6 +6,10 @@ import { Transaction } from '../models/Transaction.js';
 import { InvoiceGenerator } from '../services/invoiceGenerator.js';
 import { emailService } from '../services/EmailService.js';
 import { blobStorageService } from '../services/BlobStorageService.js';
+import { PermissionService } from '../lib/permissions/PermissionService.js';
+import type { FeaturePermissions } from '../lib/permissions/types.js';
+
+const permissionService = PermissionService.getInstance();
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -13,6 +17,7 @@ interface AuthenticatedRequest extends Request {
     email: string;
     role: string;
     username: string;
+    featurePermissions?: Partial<FeaturePermissions>;
   };
 }
 
@@ -112,6 +117,51 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
     if (!transactionData.customerName || !transactionData.items || transactionData.items.length === 0) {
       res.status(400).json({ error: 'Customer name and items are required' });
       return;
+    }
+
+    // Validate discount permissions
+    if (req.user) {
+      // Check bill-level discount
+      if (transactionData.discountAmount && transactionData.discountAmount > 0) {
+        const subtotal = transactionData.items.reduce((sum: number, item: { unitPrice?: number; quantity?: number }) =>
+          sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
+        const discountPercent = subtotal > 0 ? (transactionData.discountAmount / subtotal) * 100 : 0;
+
+        const billDiscountCheck = permissionService.checkDiscountPermission(
+          { role: req.user.role, featurePermissions: req.user.featurePermissions },
+          discountPercent,
+          transactionData.discountAmount,
+          'bill'
+        );
+
+        if (!billDiscountCheck.allowed) {
+          res.status(403).json({ error: billDiscountCheck.reason || 'Bill discount not permitted' });
+          return;
+        }
+      }
+
+      // Check item-level discounts
+      for (const item of transactionData.items) {
+        if (item.discountAmount && item.discountAmount > 0) {
+          const itemTotal = (item.unitPrice ?? 0) * (item.quantity ?? 0);
+          const itemDiscountPercent = itemTotal > 0 ? (item.discountAmount / itemTotal) * 100 : 0;
+
+          const productDiscountCheck = permissionService.checkDiscountPermission(
+            { role: req.user.role, featurePermissions: req.user.featurePermissions },
+            itemDiscountPercent,
+            item.discountAmount,
+            'product'
+          );
+
+          if (!productDiscountCheck.allowed) {
+            res.status(403).json({
+              error: productDiscountCheck.reason || 'Product discount not permitted',
+              item: item.name
+            });
+            return;
+          }
+        }
+      }
     }
 
     // Always remove transaction numbers that are empty or start with DRAFT to ensure proper TXN generation

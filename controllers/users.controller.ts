@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { User } from '@models/User.js';
+import { User, IUser } from '@models/User.js';
 import bcrypt from 'bcryptjs';
 import { AuthenticatedRequest } from '@backend/middlewares/auth.middleware.js';
 
@@ -19,7 +19,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<Response
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     if (search) {
       query.$or = [
@@ -36,7 +36,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<Response
       query.status = status;
     }
 
-    const sortOptions: any = {};
+    const sortOptions: Record<string, 1 | -1> = {};
     sortOptions[sortBy as string] = sortOrder === 'asc' ? 1 : -1;
 
     const [users, totalCount] = await Promise.all([
@@ -116,7 +116,7 @@ export const createUser = async (req: Request, res: Response): Promise<Response 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Build user data
-    const userData: any = {
+    const userData: Partial<IUser> & { password: string } = {
       username,
       email,
       password: hashedPassword,
@@ -138,9 +138,12 @@ export const createUser = async (req: Request, res: Response): Promise<Response 
       }
       
       if (discountPermissions) {
-        userData.featurePermissions.discounts = {
-          ...(featurePermissions?.discounts || {}),
-          ...discountPermissions
+        userData.featurePermissions = {
+          ...userData.featurePermissions,
+          discounts: {
+            ...(userData.featurePermissions?.discounts || {}),
+            ...discountPermissions
+          }
         };
       }
     }
@@ -236,7 +239,7 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
     }
 
     // Build update data with all fields
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     
     // Handle name fields
     if (firstName !== undefined) updateData.firstName = firstName;

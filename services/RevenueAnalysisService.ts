@@ -25,7 +25,7 @@ export class RevenueAnalysisService {
     const monthlyRevenuePipeline = [
       {
         $match: {
-          type: 'sale',
+          type: 'COMPLETED',
           status: 'completed',
           transactionDate: { $gte: startDate }
         }
@@ -71,7 +71,7 @@ export class RevenueAnalysisService {
     const categoryRevenuePipeline = [
       {
         $match: {
-          type: 'sale',
+          type: 'COMPLETED',
           status: 'completed',
           transactionDate: { $gte: startDate }
         }
@@ -124,7 +124,7 @@ export class RevenueAnalysisService {
     const paymentMethodPipeline = [
       {
         $match: {
-          type: 'sale',
+          type: 'COMPLETED',
           status: 'completed',
           transactionDate: { $gte: startDate }
         }

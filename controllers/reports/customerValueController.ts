@@ -29,7 +29,7 @@ export class CustomerValueController {
 
       // Build match conditions
       const matchConditions: Record<string, unknown> = {
-        type: 'sale',
+        type: 'COMPLETED',
         status: 'completed'
       };
 

@@ -51,7 +51,7 @@ export class SalesTrendsController {
       const transactions = await Transaction.find({
         createdAt: { $gte: startDate, $lte: endDate },
         status: 'completed',
-        type: { $in: ['sale'] }
+        type: 'COMPLETED'
       });
 
       console.log(`Sales Trends Debug: Found ${transactions.length} transactions between ${startDate.toISOString()} and ${endDate.toISOString()}`);

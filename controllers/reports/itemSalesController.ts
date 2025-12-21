@@ -15,7 +15,7 @@ export class ItemSalesController {
 
       // Build match conditions with proper typing
       const matchConditions: Record<string, unknown> = {
-        type: 'sale',
+        type: 'COMPLETED',
         status: 'completed'
       };
 

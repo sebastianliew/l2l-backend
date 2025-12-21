@@ -141,7 +141,7 @@ export class InventoryAnalysisService {
     const pipeline = [
       {
         $match: {
-          type: 'sale',
+          type: 'COMPLETED',
           status: 'completed',
           transactionDate: { $gte: thirtyDaysAgo }
         }

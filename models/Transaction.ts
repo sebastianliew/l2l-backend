@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 // Interface matching the frontend Transaction type
 export interface ITransaction extends Document {
   transactionNumber: string;
-  type: 'sale' | 'refund' | 'exchange' | 'quote';
+  type: 'DRAFT' | 'COMPLETED';
   status: 'pending' | 'completed' | 'cancelled' | 'refunded' | 'partially_refunded' | 'draft';
 
   // Customer Information
@@ -118,9 +118,9 @@ const TransactionSchema = new Schema<ITransaction>({
   transactionNumber: { type: String, unique: true },
   type: {
     type: String,
-    enum: ['sale', 'refund', 'exchange', 'quote'],
+    enum: ['DRAFT', 'COMPLETED'],
     required: true,
-    default: 'sale'
+    default: 'DRAFT'
   },
   status: {
     type: String,
@@ -210,11 +210,13 @@ TransactionSchema.pre('save', async function(next) {
   if (this.isNew && (!this.transactionNumber || this.transactionNumber.trim() === '')) {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+    // Count only transactions with TXN numbers (excluding any legacy DRAFT numbers)
     const count = await mongoose.model('Transaction').countDocuments({
       transactionDate: {
         $gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
         $lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
-      }
+      },
+      transactionNumber: { $regex: '^TXN-' }
     });
     this.transactionNumber = `TXN-${dateStr}-${String(count + 1).padStart(4, '0')}`;
   }

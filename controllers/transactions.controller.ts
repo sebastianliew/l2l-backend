@@ -16,11 +16,18 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-// GET /api/transactions - Get all transactions
+// GET /api/transactions - Get all transactions with pagination
 export const getTransactions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { search, limit = '50' } = req.query;
-    const limitNumber = parseInt(limit as string, 10);
+    const { 
+      search, 
+      page = '1', 
+      limit = '20' 
+    } = req.query;
+    
+    const pageNumber = Math.max(1, parseInt(page as string, 10));
+    const limitNumber = Math.max(1, Math.min(100, parseInt(limit as string, 10))); // Cap at 100
+    const skip = (pageNumber - 1) * limitNumber;
 
     // Build filter
     interface TransactionFilter {
@@ -40,13 +47,32 @@ export const getTransactions = async (req: AuthenticatedRequest, res: Response):
       ];
     }
 
-    // Get transactions
+    // Get total count for pagination
+    const totalCount = await Transaction.countDocuments(filter);
+
+    // Get transactions with pagination
     const transactions = await Transaction.find(filter)
       .sort({ transactionDate: -1 })
+      .skip(skip)
       .limit(limitNumber)
       .lean();
 
-    res.status(200).json(transactions);
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalCount / limitNumber);
+    const hasNextPage = pageNumber < totalPages;
+    const hasPreviousPage = pageNumber > 1;
+
+    res.status(200).json({
+      transactions,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages,
+        totalCount,
+        limit: limitNumber,
+        hasNextPage,
+        hasPreviousPage
+      }
+    });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     res.status(500).json({ error: 'Failed to fetch transactions' });
@@ -88,8 +114,10 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
-    // Remove empty transactionNumber to allow auto-generation
-    if (!transactionData.transactionNumber || transactionData.transactionNumber.trim() === '') {
+    // Always remove transaction numbers that are empty or start with DRAFT to ensure proper TXN generation
+    if (!transactionData.transactionNumber || 
+        transactionData.transactionNumber.trim() === '' || 
+        transactionData.transactionNumber.startsWith('DRAFT')) {
       delete transactionData.transactionNumber;
     }
 
@@ -227,6 +255,8 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
       res.status(400).json({ error: 'Invalid transaction ID' });
       return;
     }
+
+    // Since we no longer use DRAFT numbers, we can directly update the transaction
 
     const updatedTransaction = await Transaction.findByIdAndUpdate(
       id,
@@ -588,8 +618,8 @@ export const saveDraft = async (req: AuthenticatedRequest, res: Response): Promi
     }
 
     // Convert form data to transaction format
+    // Don't set transactionNumber - let the pre-save middleware generate a proper TXN number
     const transactionData = {
-      transactionNumber: `DRAFT-${Date.now()}`,
       customerName: formData.customerName || 'Draft Customer',
       customerId: formData.customerId,
       customerEmail: formData.customerEmail,
@@ -599,8 +629,8 @@ export const saveDraft = async (req: AuthenticatedRequest, res: Response): Promi
       discountAmount: formData.discount || 0,
       totalAmount: formData.total || formData.subtotal || 0,
       paymentMethod: formData.paymentMethod || 'cash',
-      paymentStatus: 'pending',
-      status: 'draft',
+      paymentStatus: formData.paymentStatus || 'pending',
+      status: formData.status || 'draft',
       notes: `Draft: ${draftName || 'Auto-saved draft'}`,
       transactionDate: new Date(),
       currency: 'SGD',

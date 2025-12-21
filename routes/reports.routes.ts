@@ -1,4 +1,4 @@
-import express, { Router, Request, Response } from 'express';
+import express, { Request, Response, type IRouter } from 'express';
 import { ItemSalesController } from '../controllers/reports/itemSalesController.js';
 import { ReportsController } from '../controllers/reports.controller.js';
 import { SalesTrendsController } from '../controllers/reports/salesTrendsController.js';
@@ -8,7 +8,7 @@ import { InventoryCostController } from '../controllers/reports/InventoryCostCon
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 import { requirePermission } from '../middlewares/permission.middleware.js';
 
-const router: Router = express.Router();
+const router: IRouter = express.Router();
 
 // Apply authentication middleware to all report routes
 router.use(authenticateToken);

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import {
   getAllUsers,
   createUser,
@@ -11,7 +12,7 @@ import {
 import { authenticateToken } from '@backend/middlewares/auth.middleware.js';
 import { requirePermission } from '../middlewares/permission.middleware.js';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 router.use(authenticateToken);
 

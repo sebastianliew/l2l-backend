@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import express, { type IRouter } from 'express';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
 import { requirePermission } from '../middlewares/permission.middleware.js';
 import {
@@ -9,7 +9,7 @@ import {
   deleteSupplier
 } from '../controllers/suppliers.controller.js';
 
-const router: Router = express.Router();
+const router: IRouter = express.Router();
 
 // Apply authentication to all routes
 router.use(authenticateToken);

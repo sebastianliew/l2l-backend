@@ -1,4 +1,4 @@
-import express, { Router, Request } from 'express';
+import express, { Request, type IRouter } from 'express';
 import { 
   login,
   logout,
@@ -19,7 +19,7 @@ interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 
-const router: Router = express.Router();
+const router: IRouter = express.Router();
 
 // Public routes
 router.post('/login', login);

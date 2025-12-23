@@ -20,7 +20,9 @@
       "Bash(npm run build:*)",
       "Bash(npm start)",
       "Bash(ls:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(git rm:*)",
+      "Bash(pnpm install:*)"
     ],
     "deny": [],
     "ask": []

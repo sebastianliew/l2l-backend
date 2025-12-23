@@ -210,6 +210,15 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
       dateOfBirth 
     } = req.body;
 
+    // Debug logging for permissions update
+    console.log('[UpdateUser Debug] Request data:', {
+      userId: id,
+      hasFeaturePermissions: !!featurePermissions,
+      featurePermissions: featurePermissions ? JSON.stringify(featurePermissions, null, 2) : 'undefined',
+      hasDiscountPermissions: !!discountPermissions,
+      discountPermissions: discountPermissions ? JSON.stringify(discountPermissions, null, 2) : 'undefined'
+    });
+
     const user = await User.findById(id);
 
     if (!user) {
@@ -272,6 +281,12 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
     
     // Handle permissions
     if (featurePermissions !== undefined) {
+      console.log('[UpdateUser Debug] Processing featurePermissions:', {
+        hasDiscountPermissions: !!discountPermissions,
+        hasFeatureDiscounts: !!featurePermissions.discounts,
+        featurePermissionsKeys: Object.keys(featurePermissions)
+      });
+      
       // Merge discount permissions from both sources if they exist
       if (discountPermissions || featurePermissions.discounts) {
         updateData.featurePermissions = {
@@ -285,6 +300,7 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
         updateData.featurePermissions = featurePermissions;
       }
     } else if (discountPermissions !== undefined) {
+      console.log('[UpdateUser Debug] Processing only discountPermissions');
       // If only discountPermissions is provided, merge it into existing featurePermissions
       updateData.featurePermissions = {
         ...user.featurePermissions,
@@ -298,11 +314,23 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
     if (status !== undefined) updateData.status = status;
     if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth;
 
+    // Debug logging for final update data
+    console.log('[UpdateUser Debug] Final update data:', {
+      userId: id,
+      updateData: JSON.stringify(updateData, null, 2)
+    });
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     ).select('-password');
+
+    // Debug logging for updated user
+    console.log('[UpdateUser Debug] Updated user permissions:', {
+      userId: id,
+      savedFeaturePermissions: updatedUser?.featurePermissions ? JSON.stringify(updatedUser.featurePermissions, null, 2) : 'undefined'
+    });
 
     return res.json({
       message: 'User updated successfully',
@@ -379,9 +407,17 @@ export const updateUserPassword = async (req: Request, res: Response): Promise<R
       });
     }
 
-    if (newPassword.length < 6) {
+    // Validate password complexity
+    if (newPassword.length < 8) {
       return res.status(400).json({ 
-        error: 'Password must be at least 6 characters long' 
+        error: 'Password must be at least 8 characters long' 
+      });
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ 
+        error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)' 
       });
     }
 
@@ -405,11 +441,41 @@ export const updateUserPassword = async (req: Request, res: Response): Promise<R
     // Use findByIdAndUpdate to directly update the password field
     // This avoids issues with the password field having select: false
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await User.findByIdAndUpdate(
+    
+    // Debug: Log password update details (remove in production)
+    console.log('Password update debug:', {
+      userId: id,
+      username: user.username,
+      passwordLength: newPassword.length,
+      hashLength: hashedPassword.length,
+      hashPrefix: hashedPassword.substring(0, 10)
+    });
+    
+    const updateResult = await User.findByIdAndUpdate(
       id,
       { password: hashedPassword },
-      { runValidators: true }
+      { runValidators: true, new: true }
     );
+
+    if (!updateResult) {
+      console.error('Password update failed - no result returned');
+      return res.status(500).json({ error: 'Failed to update password' });
+    }
+
+    // Verify the update worked
+    const verifyUser = await User.findById(id).select('+password');
+    if (verifyUser) {
+      const isValid = await bcrypt.compare(newPassword, verifyUser.password);
+      console.log('Password verification after update:', {
+        userId: id,
+        updateSuccessful: isValid,
+        storedHashPrefix: verifyUser.password.substring(0, 10)
+      });
+      
+      if (!isValid) {
+        console.error('WARNING: Password verification failed after update!');
+      }
+    }
 
     return res.json({
       message: 'Password updated successfully',

@@ -84,7 +84,8 @@ export class ItemSalesController {
           quantity_sold: { $sum: '$items.quantity' },
           base_unit: { $first: { $ifNull: ['$items.baseUnit', 'unit'] } },
           average_list_price: { $avg: '$items.unitPrice' },
-          last_sale_date: { $max: '$createdAt' }
+          last_sale_date: { $max: '$createdAt' },
+          item_type: { $first: { $ifNull: ['$items.itemType', 'product'] } }
         }
       });
 
@@ -113,8 +114,26 @@ export class ItemSalesController {
       // Calculate final results with actual cost data
       const results: ItemSalesData[] = salesResults.map(item => {
         const productId = item._id;
+        const hasCostData = costPriceMap.has(productId);
         const costPrice = costPriceMap.get(productId) || 0;
         const total_cost = item.quantity_sold * costPrice;
+        
+        // Special handling for non-product items
+        const itemType = item.item_type || 'product';
+        const isSpecialItem = ['consultation', 'service', 'custom_blend'].includes(itemType);
+        
+        // Calculate margin - set to null if cost data is missing for products
+        let margin: number;
+        if (item.total_sales > 0) {
+          if (hasCostData || isSpecialItem) {
+            margin = (item.total_sales - total_cost) / item.total_sales;
+          } else {
+            // For products without cost data, we'll indicate this in the UI
+            margin = -1; // Special value to indicate missing data
+          }
+        } else {
+          margin = 0;
+        }
         
         return {
           item_name: item.item_name,
@@ -127,7 +146,9 @@ export class ItemSalesController {
           average_list_price: item.average_list_price,
           average_cost_price: costPrice,
           last_sale_date: item.last_sale_date,
-          margin: item.total_sales > 0 ? (item.total_sales - total_cost) / item.total_sales : 0
+          margin: margin,
+          has_cost_data: hasCostData || isSpecialItem,
+          item_type: itemType
         };
       });
 

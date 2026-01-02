@@ -54,12 +54,6 @@ export class SalesTrendsController {
         type: 'COMPLETED'
       });
 
-      console.log(`Sales Trends Debug: Found ${transactions.length} transactions between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-      
-      // Debug: Check first transaction structure
-      if (transactions.length > 0) {
-        console.log('First transaction items sample:', JSON.stringify(transactions[0].items?.slice(0, 2), null, 2));
-      }
 
       // Generate daily data
       const dailyData = await generateDailyData(transactions, startDate, days);
@@ -70,7 +64,6 @@ export class SalesTrendsController {
       // Generate top products data
       const topProducts = await generateTopProductsData(transactions);
 
-      console.log(`Sales Trends Debug: Generated ${dailyData.length} daily entries, ${categoryData.length} categories, ${topProducts.length} top products`);
 
       const response: SalesTrendsResponse = {
         dailyData,
@@ -157,8 +150,6 @@ async function generateCategoryData(transactions: ITransaction[]): Promise<Categ
     });
   });
   
-  console.log(`Category Debug: Processed ${itemsProcessed} items from ${transactions.length} transactions, total revenue: ${totalRevenue}`);
-  
   const result = Array.from(categoryMap.entries())
     .map(([category, revenue]) => ({
       category,
@@ -167,8 +158,6 @@ async function generateCategoryData(transactions: ITransaction[]): Promise<Categ
     }))
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
-    
-  console.log('Category breakdown:', result);
   return result;
 }
 
@@ -200,8 +189,6 @@ async function generateTopProductsData(transactions: ITransaction[]): Promise<To
     });
   });
   
-  console.log(`Top Products Debug: Processed ${productsProcessed} product entries, found ${productMap.size} unique products`);
-  
   const result = Array.from(productMap.entries())
     .map(([product, data]) => ({
       product,
@@ -210,7 +197,5 @@ async function generateTopProductsData(transactions: ITransaction[]): Promise<To
     }))
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
-    
-  console.log('Top products:', result.map(p => `${p.product}: $${p.revenue}`));
   return result;
 }

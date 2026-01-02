@@ -45,11 +45,30 @@ export const getTransactions = async (req: AuthenticatedRequest, res: Response):
 
     const filter: TransactionFilter = {};
     if (search) {
-      filter.$or = [
-        { transactionNumber: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { customerEmail: { $regex: search, $options: 'i' } }
-      ];
+      // Split search term into words for better multi-word matching
+      const searchTerm = search as string;
+      const searchWords = searchTerm.trim().split(/\s+/);
+      
+      if (searchWords.length > 1) {
+        // For multi-word searches, create patterns that match all words in any order
+        const wordPatterns = searchWords.map(word => `(?=.*${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`);
+        const combinedPattern = `^${wordPatterns.join('')}.*`;
+        
+        filter.$or = [
+          { transactionNumber: { $regex: searchTerm, $options: 'i' } },
+          { customerName: { $regex: combinedPattern, $options: 'i' } },
+          { customerEmail: { $regex: searchTerm, $options: 'i' } },
+          // Also try exact phrase match
+          { customerName: { $regex: searchTerm, $options: 'i' } }
+        ];
+      } else {
+        // Single word search (original behavior)
+        filter.$or = [
+          { transactionNumber: { $regex: searchTerm, $options: 'i' } },
+          { customerName: { $regex: searchTerm, $options: 'i' } },
+          { customerEmail: { $regex: searchTerm, $options: 'i' } }
+        ];
+      }
     }
 
     // Get total count for pagination

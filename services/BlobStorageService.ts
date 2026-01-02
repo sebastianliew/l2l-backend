@@ -103,14 +103,19 @@ export class BlobStorageService {
     stream: NodeJS.ReadableStream;
     exists: boolean;
   }> {
+    console.log('[BlobStorage] downloadFile called:', { blobName, localFallbackPath, isAzureEnabled: this.isAzureEnabled });
+
     if (this.isAzureEnabled && this.containerClient) {
       try {
+        console.log('[BlobStorage] Checking Azure for blob:', blobName);
         const blockBlobClient: BlockBlobClient = this.containerClient.getBlockBlobClient(blobName);
 
         // Check if blob exists
         const exists = await blockBlobClient.exists();
+        console.log('[BlobStorage] Azure blob exists:', exists);
         if (!exists) {
           // Try local fallback
+          console.log('[BlobStorage] Checking local fallback:', localFallbackPath, 'exists:', fs.existsSync(localFallbackPath));
           if (fs.existsSync(localFallbackPath)) {
             console.log('[BlobStorage] Blob not found in Azure, using local fallback:', localFallbackPath);
             return {

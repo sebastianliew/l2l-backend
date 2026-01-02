@@ -342,7 +342,32 @@ export class InvoiceGenerator {
       .text('Subtotal:', labelX, this.yPosition)
       .text(this.formatCurrency(data.subtotal, currency), valueX, this.yPosition, { align: 'right', width: 60 });
 
-    this.yPosition += 30;
+    this.yPosition += 20;
+
+    // Member Discounts (item-level discounts)
+    if (data.discountAmount && data.discountAmount > 0) {
+      this.doc
+        .fillColor('#28a745')
+        .text('Member Discounts:', labelX, this.yPosition)
+        .text(`-${this.formatCurrency(data.discountAmount, currency)}`, valueX, this.yPosition, { align: 'right', width: 60 });
+
+      this.yPosition += 20;
+    }
+
+    // Additional Discount (transaction-level discount)
+    if (data.additionalDiscount && data.additionalDiscount > 0) {
+      this.doc
+        .fillColor('#28a745')
+        .text('Additional Discount:', labelX, this.yPosition)
+        .text(`-${this.formatCurrency(data.additionalDiscount, currency)}`, valueX, this.yPosition, { align: 'right', width: 60 });
+
+      this.yPosition += 20;
+    }
+
+    // Reset color for total line
+    this.doc.fillColor('#000000');
+
+    this.yPosition += 10;
 
     // Total line
     this.doc

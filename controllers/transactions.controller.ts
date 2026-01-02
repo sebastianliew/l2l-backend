@@ -454,12 +454,13 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
     // Upload to Azure Blob Storage (or keep local if not configured)
     await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
-    // Update transaction with invoice info
-    transaction.invoiceGenerated = true;
-    transaction.invoiceNumber = invoiceNumber;
-    transaction.invoicePath = relativeInvoicePath;
-    transaction.lastModifiedBy = req.user?.id || 'system';
-    await transaction.save();
+    // Update transaction with invoice info (use findByIdAndUpdate to avoid full document validation)
+    await Transaction.findByIdAndUpdate(id, {
+      invoiceGenerated: true,
+      invoiceNumber,
+      invoicePath: relativeInvoicePath,
+      lastModifiedBy: req.user?.id || 'system'
+    });
 
     console.log('[Invoice] Invoice generated successfully:', invoiceNumber);
 
@@ -482,11 +483,12 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
         );
 
         if (emailSent) {
-          // Update transaction with email sent info
-          transaction.invoiceEmailSent = true;
-          transaction.invoiceEmailSentAt = new Date();
-          transaction.invoiceEmailRecipient = transaction.customerEmail;
-          await transaction.save();
+          // Update transaction with email sent info (use findByIdAndUpdate to avoid full document validation)
+          await Transaction.findByIdAndUpdate(id, {
+            invoiceEmailSent: true,
+            invoiceEmailSentAt: new Date(),
+            invoiceEmailRecipient: transaction.customerEmail
+          });
 
           console.log('[Invoice] Email sent successfully to:', transaction.customerEmail);
         }
@@ -620,11 +622,6 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
     // Upload to Azure Blob Storage (or keep local if not configured)
     await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
-    // Update transaction with invoice info
-    transaction.invoiceGenerated = true;
-    transaction.invoiceNumber = invoiceNumber;
-    transaction.invoicePath = relativeInvoicePath;
-
     // Send email with invoice attachment
     console.log('[Email] Sending email to:', transaction.customerEmail);
 
@@ -639,12 +636,17 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
     );
 
     if (emailSent) {
-      // Update transaction with email sent info
-      transaction.invoiceEmailSent = true;
-      transaction.invoiceEmailSentAt = new Date();
-      transaction.invoiceEmailRecipient = transaction.customerEmail;
-      transaction.lastModifiedBy = req.user?.id || 'system';
-      await transaction.save();
+      // Update transaction with email sent info (use findByIdAndUpdate to avoid full document validation)
+      const emailSentAt = new Date();
+      await Transaction.findByIdAndUpdate(id, {
+        invoiceGenerated: true,
+        invoiceNumber,
+        invoicePath: relativeInvoicePath,
+        invoiceEmailSent: true,
+        invoiceEmailSentAt: emailSentAt,
+        invoiceEmailRecipient: transaction.customerEmail,
+        lastModifiedBy: req.user?.id || 'system'
+      });
 
       console.log('[Email] Invoice email sent successfully to:', transaction.customerEmail);
 
@@ -653,7 +655,7 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
         message: 'Invoice email sent successfully',
         emailSent: true,
         recipient: transaction.customerEmail,
-        sentAt: transaction.invoiceEmailSentAt
+        sentAt: emailSentAt
       });
     } else {
       // Email service returned false (not configured)

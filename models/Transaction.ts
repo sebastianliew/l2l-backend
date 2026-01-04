@@ -255,6 +255,17 @@ TransactionSchema.index({ status: 1 });
 TransactionSchema.index({ paymentStatus: 1 });
 TransactionSchema.index({ createdBy: 1 });
 
+// Compound indexes for common query patterns (significant performance improvement)
+TransactionSchema.index({ status: 1, transactionDate: -1 }); // Status filtering with date sort
+TransactionSchema.index({ type: 1, status: 1, createdAt: -1 }); // Report queries
+TransactionSchema.index({ createdAt: -1, status: 1, type: 1 }); // Sales trends, item sales
+
+// Text index for search functionality (replaces slow regex searches)
+TransactionSchema.index(
+  { customerName: 'text', customerEmail: 'text', transactionNumber: 'text' },
+  { name: 'transaction_search_text' }
+);
+
 // Pre-save middleware to generate transaction number using atomic counter
 // This eliminates the race condition that could cause duplicate transaction numbers
 TransactionSchema.pre('save', async function(next) {

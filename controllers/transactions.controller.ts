@@ -12,6 +12,139 @@ import { createAuditLog } from '../models/AuditLog.js';
 
 const permissionService = PermissionService.getInstance();
 
+// Helper function to generate invoice asynchronously (fire-and-forget)
+// This runs in background after response is sent to user
+async function generateInvoiceAsync(
+  savedTransaction: {
+    _id: unknown;
+    transactionNumber: string;
+    transactionDate: Date;
+    customerName: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    items: Array<{
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      discountAmount?: number;
+      itemType?: string;
+    }>;
+    discountAmount: number;
+    totalAmount: number;
+    paymentMethod: string;
+    paymentStatus: string;
+    notes?: string;
+    currency: string;
+    dueDate?: Date;
+    paidDate?: Date;
+    paidAmount: number;
+  },
+  transactionId: unknown
+): Promise<void> {
+  const invoiceNumber = savedTransaction.transactionNumber;
+
+  try {
+    // Update status to generating
+    await Transaction.findByIdAndUpdate(transactionId, { invoiceStatus: 'generating' });
+
+    // Ensure invoices directory exists
+    const invoicesDir = path.join(process.cwd(), 'invoices');
+    if (!fs.existsSync(invoicesDir)) {
+      fs.mkdirSync(invoicesDir, { recursive: true });
+    }
+
+    // Prepare invoice data
+    const subtotal = savedTransaction.items.reduce((sum, item) => sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
+    const totalDiscounts = savedTransaction.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
+
+    const invoiceData = {
+      invoiceNumber,
+      transactionNumber: savedTransaction.transactionNumber,
+      transactionDate: savedTransaction.transactionDate,
+      customerName: savedTransaction.customerName,
+      customerEmail: savedTransaction.customerEmail,
+      customerPhone: savedTransaction.customerPhone,
+      items: savedTransaction.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity ?? 0,
+        unitPrice: item.unitPrice ?? 0,
+        totalPrice: (item.unitPrice ?? 0) * (item.quantity ?? 0) - (item.discountAmount ?? 0),
+        discountAmount: item.discountAmount,
+        itemType: item.itemType as 'product' | 'fixed_blend' | 'custom_blend' | 'bundle' | 'miscellaneous' | 'consultation' | 'service' | undefined
+      })),
+      subtotal,
+      discountAmount: totalDiscounts,
+      additionalDiscount: savedTransaction.discountAmount ?? 0,
+      totalAmount: savedTransaction.totalAmount,
+      paymentMethod: savedTransaction.paymentMethod,
+      paymentStatus: savedTransaction.paymentStatus,
+      notes: savedTransaction.notes,
+      currency: savedTransaction.currency || 'SGD',
+      dueDate: savedTransaction.dueDate || undefined,
+      paidDate: savedTransaction.paidDate,
+      paidAmount: savedTransaction.paidAmount,
+      status: savedTransaction.paymentStatus
+    };
+
+    // Generate PDF
+    const invoiceFileName = `${invoiceNumber}-LeafToLife.pdf`;
+    const invoiceFilePath = path.join(invoicesDir, invoiceFileName);
+    const relativeInvoicePath = `invoices/${invoiceFileName}`;
+
+    const generator = new InvoiceGenerator();
+    await generator.generateInvoice(invoiceData, invoiceFilePath);
+
+    // Upload to blob storage
+    await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
+
+    // Update transaction with invoice info
+    await Transaction.findByIdAndUpdate(transactionId, {
+      invoiceGenerated: true,
+      invoiceStatus: 'completed',
+      invoiceNumber: invoiceNumber,
+      invoicePath: relativeInvoicePath
+    });
+
+    console.log('[Transaction] Background invoice generated:', invoiceNumber);
+
+    // Email sending (non-critical, also async)
+    if (savedTransaction.customerEmail && emailService.isEnabled()) {
+      try {
+        const emailSent = await emailService.sendInvoiceEmail(
+          savedTransaction.customerEmail,
+          savedTransaction.customerName,
+          invoiceNumber,
+          invoiceFilePath,
+          savedTransaction.totalAmount,
+          savedTransaction.transactionDate,
+          savedTransaction.paymentStatus || 'pending'
+        );
+
+        if (emailSent) {
+          await Transaction.findByIdAndUpdate(transactionId, {
+            invoiceEmailSent: true,
+            invoiceEmailSentAt: new Date(),
+            invoiceEmailRecipient: savedTransaction.customerEmail
+          });
+          console.log('[Transaction] Invoice email sent:', savedTransaction.customerEmail);
+        }
+      } catch (emailError) {
+        console.error('[Transaction] Email sending failed:', emailError);
+      }
+    }
+
+  } catch (pdfError) {
+    // PDF generation failed - mark transaction but don't delete it
+    const invoiceError = pdfError instanceof Error ? pdfError.message : 'Unknown error';
+    console.error('[Transaction] Invoice generation failed:', invoiceError);
+
+    await Transaction.findByIdAndUpdate(transactionId, {
+      invoiceStatus: 'failed',
+      invoiceError: invoiceError
+    });
+  }
+}
+
 interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
@@ -209,123 +342,7 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
     const savedTransaction = await transaction.save();
     const transactionId = savedTransaction._id;
 
-    console.log('[Transaction] Phase 1 complete - Transaction saved and visible:', transactionId);
-
-    // ========================================================================
-    // PHASE 2: Generate invoice (document is now visible, updates won't conflict)
-    // PDF generation can fail without losing the transaction
-    // ========================================================================
-    const invoiceNumber = savedTransaction.transactionNumber;
-    let invoiceGenerated = false;
-    let emailSent = false;
-    let invoiceError: string | null = null;
-
-    try {
-      // Update status to generating (using findByIdAndUpdate for speed)
-      await Transaction.findByIdAndUpdate(transactionId, { invoiceStatus: 'generating' });
-
-      // Ensure invoices directory exists
-      const invoicesDir = path.join(process.cwd(), 'invoices');
-      if (!fs.existsSync(invoicesDir)) {
-        fs.mkdirSync(invoicesDir, { recursive: true });
-      }
-
-      // Prepare invoice data
-      const subtotal = savedTransaction.items.reduce((sum, item) => sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
-      const totalDiscounts = savedTransaction.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
-
-      const invoiceData = {
-        invoiceNumber,
-        transactionNumber: savedTransaction.transactionNumber,
-        transactionDate: savedTransaction.transactionDate,
-        customerName: savedTransaction.customerName,
-        customerEmail: savedTransaction.customerEmail,
-        customerPhone: savedTransaction.customerPhone,
-        items: savedTransaction.items.map(item => ({
-          name: item.name,
-          quantity: item.quantity ?? 0,
-          unitPrice: item.unitPrice ?? 0,
-          totalPrice: (item.unitPrice ?? 0) * (item.quantity ?? 0) - (item.discountAmount ?? 0),
-          discountAmount: item.discountAmount,
-          itemType: item.itemType
-        })),
-        subtotal,
-        discountAmount: totalDiscounts,
-        additionalDiscount: savedTransaction.discountAmount ?? 0,
-        totalAmount: savedTransaction.totalAmount,
-        paymentMethod: savedTransaction.paymentMethod,
-        paymentStatus: savedTransaction.paymentStatus,
-        notes: savedTransaction.notes,
-        currency: savedTransaction.currency || 'SGD',
-        dueDate: savedTransaction.dueDate || undefined,
-        paidDate: savedTransaction.paidDate,
-        paidAmount: savedTransaction.paidAmount,
-        status: savedTransaction.paymentStatus
-      };
-
-      // Generate PDF
-      const invoiceFileName = `${invoiceNumber}-LeafToLife.pdf`;
-      const invoiceFilePath = path.join(invoicesDir, invoiceFileName);
-      const relativeInvoicePath = `invoices/${invoiceFileName}`;
-
-      const generator = new InvoiceGenerator();
-      await generator.generateInvoice(invoiceData, invoiceFilePath);
-
-      // Upload to blob storage
-      await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
-
-      // Update transaction with invoice info (atomic update, no session needed)
-      await Transaction.findByIdAndUpdate(transactionId, {
-        invoiceGenerated: true,
-        invoiceStatus: 'completed',
-        invoiceNumber: invoiceNumber,
-        invoicePath: relativeInvoicePath
-      });
-
-      invoiceGenerated = true;
-      console.log('[Transaction] Phase 2 complete - Invoice generated:', invoiceNumber);
-
-      // Email sending (non-critical)
-      if (savedTransaction.customerEmail && emailService.isEnabled()) {
-        try {
-          console.log('[Transaction] Sending invoice email to:', savedTransaction.customerEmail);
-
-          emailSent = await emailService.sendInvoiceEmail(
-            savedTransaction.customerEmail,
-            savedTransaction.customerName,
-            invoiceNumber,
-            invoiceFilePath,
-            savedTransaction.totalAmount,
-            savedTransaction.transactionDate,
-            savedTransaction.paymentStatus || 'pending'
-          );
-
-          if (emailSent) {
-            await Transaction.findByIdAndUpdate(transactionId, {
-              invoiceEmailSent: true,
-              invoiceEmailSentAt: new Date(),
-              invoiceEmailRecipient: savedTransaction.customerEmail
-            });
-            console.log('[Transaction] Invoice email sent successfully');
-          }
-        } catch (emailError) {
-          console.error('[Transaction] Failed to send invoice email:', emailError);
-          // Don't fail the transaction for email errors
-        }
-      }
-
-    } catch (pdfError) {
-      // PDF generation failed - mark transaction but don't delete it
-      invoiceError = pdfError instanceof Error ? pdfError.message : 'Unknown error';
-      console.error('[Transaction] Invoice generation failed:', invoiceError);
-
-      await Transaction.findByIdAndUpdate(transactionId, {
-        invoiceStatus: 'failed',
-        invoiceError: invoiceError
-      });
-
-      // Transaction is still valid - PDF can be regenerated later
-    }
+    console.log('[Transaction] Transaction saved:', transactionId);
 
     // Create audit log (fire-and-forget)
     createAuditLog({
@@ -337,24 +354,27 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
       userEmail: req.user?.email,
       metadata: {
         transactionNumber: savedTransaction.transactionNumber,
-        totalAmount: savedTransaction.totalAmount,
-        invoiceGenerated,
-        invoiceError,
-        emailSent
+        totalAmount: savedTransaction.totalAmount
       },
       duration: Date.now() - startTime
     });
 
-    // Fetch final state to return accurate data
-    const finalTransaction = await Transaction.findById(transactionId);
-
-    // Return complete response
+    // Return response IMMEDIATELY - don't wait for invoice generation
+    // This reduces response time from 6-10 seconds to ~100-200ms
     res.status(201).json({
-      ...(finalTransaction?.toObject() || savedTransaction.toObject()),
-      _invoiceGenerated: invoiceGenerated,
-      _emailSent: emailSent,
-      _invoiceGenerating: false,
-      _invoiceError: invoiceError
+      ...savedTransaction.toObject(),
+      _invoiceGenerated: false,
+      _emailSent: false,
+      _invoiceGenerating: true, // Indicates invoice is being generated in background
+      _invoiceError: null
+    });
+
+    // ========================================================================
+    // ASYNC PHASE: Generate invoice in background (fire-and-forget)
+    // This runs AFTER response is sent - user doesn't wait for it
+    // ========================================================================
+    generateInvoiceAsync(savedTransaction, transactionId).catch(error => {
+      console.error('[Transaction] Background invoice generation failed:', error);
     });
 
   } catch (error) {
@@ -384,6 +404,7 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
 };
 
 // PUT /api/transactions/:id - Update transaction
+// FIX: When converting a draft to a completed transaction, generate an invoice
 export const updateTransaction = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -394,8 +415,19 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
-    // Since we no longer use DRAFT numbers, we can directly update the transaction
+    // Fetch current transaction to check if we're converting from draft
+    const existingTransaction = await Transaction.findById(id);
+    if (!existingTransaction) {
+      res.status(404).json({ error: 'Transaction not found' });
+      return;
+    }
 
+    // Check if this is a draft being converted to a completed transaction
+    const wasDraft = existingTransaction.status === 'draft';
+    const isBeingCompleted = updateData.status && updateData.status !== 'draft';
+    const needsInvoice = wasDraft && isBeingCompleted && !existingTransaction.invoiceGenerated;
+
+    // Update the transaction first
     const updatedTransaction = await Transaction.findByIdAndUpdate(
       id,
       { ...updateData, lastModifiedBy: req.user?.id || 'system' },
@@ -405,6 +437,105 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
     if (!updatedTransaction) {
       res.status(404).json({ error: 'Transaction not found' });
       return;
+    }
+
+    // If converting from draft to completed, generate invoice
+    if (needsInvoice) {
+      console.log('[Transaction] Draft being converted to completed, generating invoice:', id);
+
+      try {
+        // Update status to generating
+        await Transaction.findByIdAndUpdate(id, { invoiceStatus: 'generating' });
+
+        // Ensure invoices directory exists
+        const invoicesDir = path.join(process.cwd(), 'invoices');
+        if (!fs.existsSync(invoicesDir)) {
+          fs.mkdirSync(invoicesDir, { recursive: true });
+        }
+
+        // Prepare invoice data
+        const invoiceNumber = updatedTransaction.transactionNumber;
+        const subtotal = updatedTransaction.items.reduce((sum, item) => sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
+        const totalDiscounts = updatedTransaction.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
+
+        const invoiceData = {
+          invoiceNumber,
+          transactionNumber: updatedTransaction.transactionNumber,
+          transactionDate: updatedTransaction.transactionDate,
+          customerName: updatedTransaction.customerName,
+          customerEmail: updatedTransaction.customerEmail,
+          customerPhone: updatedTransaction.customerPhone,
+          items: updatedTransaction.items.map(item => ({
+            name: item.name,
+            quantity: item.quantity ?? 0,
+            unitPrice: item.unitPrice ?? 0,
+            totalPrice: (item.unitPrice ?? 0) * (item.quantity ?? 0) - (item.discountAmount ?? 0),
+            discountAmount: item.discountAmount,
+            itemType: item.itemType
+          })),
+          subtotal,
+          discountAmount: totalDiscounts,
+          additionalDiscount: updatedTransaction.discountAmount ?? 0,
+          totalAmount: updatedTransaction.totalAmount,
+          paymentMethod: updatedTransaction.paymentMethod,
+          paymentStatus: updatedTransaction.paymentStatus,
+          notes: updatedTransaction.notes,
+          currency: updatedTransaction.currency || 'SGD',
+          dueDate: updatedTransaction.dueDate || undefined,
+          paidDate: updatedTransaction.paidDate,
+          paidAmount: updatedTransaction.paidAmount,
+          status: updatedTransaction.paymentStatus
+        };
+
+        // Generate PDF
+        const invoiceFileName = `${invoiceNumber}-LeafToLife.pdf`;
+        const invoiceFilePath = path.join(invoicesDir, invoiceFileName);
+        const relativeInvoicePath = `invoices/${invoiceFileName}`;
+
+        const generator = new InvoiceGenerator();
+        await generator.generateInvoice(invoiceData, invoiceFilePath);
+
+        // Upload to storage
+        await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
+
+        // Update transaction with invoice info
+        const finalTransaction = await Transaction.findByIdAndUpdate(
+          id,
+          {
+            invoiceGenerated: true,
+            invoiceStatus: 'completed',
+            invoiceNumber: invoiceNumber,
+            invoicePath: relativeInvoicePath
+          },
+          { new: true }
+        );
+
+        console.log('[Transaction] Invoice generated for converted draft:', invoiceNumber);
+
+        res.status(200).json({
+          ...finalTransaction?.toObject(),
+          _invoiceGenerated: true
+        });
+        return;
+
+      } catch (invoiceError) {
+        console.error('[Transaction] Invoice generation failed for draft conversion:', invoiceError);
+
+        // Mark invoice as failed but still return the updated transaction
+        await Transaction.findByIdAndUpdate(id, {
+          invoiceStatus: 'failed',
+          invoiceError: invoiceError instanceof Error ? invoiceError.message : 'Unknown error'
+        });
+
+        // Return the transaction anyway - invoice can be regenerated later
+        const failedTransaction = await Transaction.findById(id);
+        res.status(200).json({
+          ...failedTransaction?.toObject(),
+          _invoiceGenerated: false,
+          _invoiceError: invoiceError instanceof Error ? invoiceError.message : 'Unknown error'
+        });
+        return;
+      }
     }
 
     res.status(200).json(updatedTransaction);

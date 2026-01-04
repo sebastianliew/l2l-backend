@@ -21,6 +21,18 @@ interface TopProductData {
   quantity: number;
 }
 
+// Lean transaction type for optimized queries (subset of ITransaction)
+interface LeanTransaction {
+  createdAt: Date;
+  totalAmount?: number;
+  items?: Array<{
+    name?: string;
+    itemType?: string;
+    totalPrice?: number;
+    quantity?: number;
+  }>;
+}
+
 interface SalesTrendsResponse {
   dailyData: SalesTrendData[];
   categoryData: CategoryData[];
@@ -47,20 +59,22 @@ export class SalesTrendsController {
         startDate.setDate(startDate.getDate() - days);
       }
 
-      // Get transactions for the period
+      // Get transactions for the period with .lean() for better memory efficiency
+      // Uses compound index: { createdAt: -1, status: 1, type: 1 }
       const transactions = await Transaction.find({
         createdAt: { $gte: startDate, $lte: endDate },
         status: 'completed',
         type: 'COMPLETED'
-      });
-
+      })
+        .select('createdAt totalAmount items') // Only select needed fields
+        .lean() as LeanTransaction[];
 
       // Generate daily data
       const dailyData = await generateDailyData(transactions, startDate, days);
-      
+
       // Generate category data
       const categoryData = await generateCategoryData(transactions);
-      
+
       // Generate top products data
       const topProducts = await generateTopProductsData(transactions);
 
@@ -82,7 +96,7 @@ export class SalesTrendsController {
   }
 }
 
-async function generateDailyData(transactions: ITransaction[], startDate: Date, days: number): Promise<SalesTrendData[]> {
+async function generateDailyData(transactions: LeanTransaction[], startDate: Date, days: number): Promise<SalesTrendData[]> {
   const dailyMap = new Map<string, SalesTrendData>();
   
   // Initialize all days with zero values
@@ -120,20 +134,18 @@ async function generateDailyData(transactions: ITransaction[], startDate: Date, 
   return Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-async function generateCategoryData(transactions: ITransaction[]): Promise<CategoryData[]> {
+async function generateCategoryData(transactions: LeanTransaction[]): Promise<CategoryData[]> {
   const categoryMap = new Map<string, number>();
   let totalRevenue = 0;
   let itemsProcessed = 0;
 
   transactions.forEach(transaction => {
     if (!transaction.items || !Array.isArray(transaction.items)) {
-      console.log(`Warning: Transaction ${transaction.transactionNumber || 'unknown'} has no items array`);
       return;
     }
-    
+
     transaction.items.forEach((item) => {
       if (!item) {
-        console.log(`Warning: Found null/undefined item in transaction ${transaction.transactionNumber || 'unknown'}`);
         return;
       }
       
@@ -161,7 +173,7 @@ async function generateCategoryData(transactions: ITransaction[]): Promise<Categ
   return result;
 }
 
-async function generateTopProductsData(transactions: ITransaction[]): Promise<TopProductData[]> {
+async function generateTopProductsData(transactions: LeanTransaction[]): Promise<TopProductData[]> {
   const productMap = new Map<string, { revenue: number; quantity: number }>();
   let productsProcessed = 0;
 

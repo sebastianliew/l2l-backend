@@ -124,12 +124,33 @@ export class ItemSalesController {
 
       // For name-based lookups, we need to handle legacy naming differences
       // Build regex patterns for case-insensitive matching and stripping suffixes like (BOTTLE), (GRAM), etc.
+
+      // Brand prefix mappings (transaction name → database prefix)
+      const brandMappings: Record<string, string> = {
+        'MEDIHERB': 'MH',
+        'MediHerb': 'MH',
+        'PHYTO': 'Phyto',
+      };
+
       const namePatterns = productNames.map(name => {
         // Remove ALL parenthetical suffixes like (BOTTLE), (GRAM), (ML), (60 TABLETS), (1x unit), etc.
-        // Use global replace to remove all occurrences
-        const baseName = name.replace(/\s*\([^)]+\)/g, '').trim();
-        // Escape regex special characters and create case-insensitive pattern
-        const escaped = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        let baseName = name.replace(/\s*\([^)]+\)/g, '').trim();
+
+        // Apply brand prefix mappings
+        for (const [from, to] of Object.entries(brandMappings)) {
+          if (baseName.toUpperCase().startsWith(from.toUpperCase())) {
+            baseName = to + baseName.slice(from.length);
+            break;
+          }
+        }
+
+        // Normalize apostrophes: "Johns" should match "John's"
+        // Create pattern that matches with or without apostrophe
+        let escaped = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Make apostrophes optional and handle missing apostrophes
+        escaped = escaped.replace(/(\w)'(\w)/g, "$1'?$2"); // "John's" matches "Johns"
+        escaped = escaped.replace(/(\w)s\b/g, "$1'?s"); // "Johns" matches "John's"
+
         return { original: name, pattern: new RegExp(escaped, 'i') };
       });
 

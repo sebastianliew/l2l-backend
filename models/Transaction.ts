@@ -1,4 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { getNextSequence } from './Counter';
+
+// Invoice status enum for proper state tracking
+export type InvoiceStatus = 'none' | 'pending' | 'generating' | 'completed' | 'failed';
 
 // Interface matching the frontend Transaction type
 export interface ITransaction extends Document {
@@ -60,7 +64,9 @@ export interface ITransaction extends Document {
   terms?: string;
 
   // Invoice Information
-  invoiceGenerated: boolean;
+  invoiceGenerated: boolean; // Kept for backwards compatibility
+  invoiceStatus: InvoiceStatus; // New status field for proper state tracking
+  invoiceError?: string; // Error message if invoice generation failed
   invoicePath?: string;
   invoiceNumber?: string;
   invoiceEmailSent?: boolean;
@@ -170,7 +176,13 @@ const TransactionSchema = new Schema<ITransaction>({
   terms: { type: String },
 
   // Invoice Information
-  invoiceGenerated: { type: Boolean, default: false },
+  invoiceGenerated: { type: Boolean, default: false }, // Kept for backwards compatibility
+  invoiceStatus: {
+    type: String,
+    enum: ['none', 'pending', 'generating', 'completed', 'failed'],
+    default: 'none'
+  },
+  invoiceError: { type: String },
   invoicePath: { type: String },
   invoiceNumber: { type: String },
   invoiceEmailSent: { type: Boolean, default: false },
@@ -205,20 +217,16 @@ TransactionSchema.index({ status: 1 });
 TransactionSchema.index({ paymentStatus: 1 });
 TransactionSchema.index({ createdBy: 1 });
 
-// Pre-save middleware to generate transaction number
+// Pre-save middleware to generate transaction number using atomic counter
+// This eliminates the race condition that could cause duplicate transaction numbers
 TransactionSchema.pre('save', async function(next) {
   if (this.isNew && (!this.transactionNumber || this.transactionNumber.trim() === '')) {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    // Count only transactions with TXN numbers (excluding any legacy DRAFT numbers)
-    const count = await mongoose.model('Transaction').countDocuments({
-      transactionDate: {
-        $gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
-        $lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
-      },
-      transactionNumber: { $regex: '^TXN-' }
-    });
-    this.transactionNumber = `TXN-${dateStr}-${String(count + 1).padStart(4, '0')}`;
+    // Use atomic counter to get unique sequence number
+    const counterId = `txn-${dateStr}`;
+    const seq = await getNextSequence(counterId);
+    this.transactionNumber = `TXN-${dateStr}-${String(seq).padStart(4, '0')}`;
   }
   next();
 });

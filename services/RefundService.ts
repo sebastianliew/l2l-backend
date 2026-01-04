@@ -1,6 +1,8 @@
+import mongoose from 'mongoose';
 import { Refund, IRefund } from '../models/Refund.js';
 import { Transaction } from '../models/Transaction.js';
 import { Product } from '../models/Product.js';
+import { createAuditLog } from '../models/AuditLog.js';
 
 interface RefundFilters {
   status?: string;
@@ -88,11 +90,16 @@ export class RefundService {
     }
   }
 
-  // Create new refund
+  // Create new refund - uses MongoDB session for atomic operations
   static async createRefund(transactionId: string, refundData: CreateRefundData): Promise<IRefund> {
+    const session = await mongoose.startSession();
+    const startTime = Date.now();
+
     try {
+      session.startTransaction();
+
       // Get the original transaction
-      const transaction = await Transaction.findById(transactionId);
+      const transaction = await Transaction.findById(transactionId).session(session);
       if (!transaction) {
         throw new Error('Transaction not found');
       }
@@ -110,7 +117,7 @@ export class RefundService {
         const originalItem = transaction.items.find(
           (txnItem) => txnItem.productId === item.productId
         );
-        
+
         if (!originalItem) {
           throw new Error(`Product ${item.productId} not found in transaction`);
         }
@@ -155,7 +162,7 @@ export class RefundService {
         status: 'pending'
       });
 
-      await refund.save();
+      await refund.save({ session });
 
       // Update transaction refund tracking
       transaction.refundHistory = transaction.refundHistory || [];
@@ -163,7 +170,7 @@ export class RefundService {
       transaction.refundCount = (transaction.refundCount || 0) + 1;
       transaction.totalRefunded = (transaction.totalRefunded || 0) + totalRefundAmount;
       transaction.lastRefundDate = new Date();
-      
+
       // Update refund status
       if (refundType === 'full') {
         transaction.refundStatus = 'full';
@@ -173,12 +180,46 @@ export class RefundService {
         transaction.status = 'partially_refunded';
       }
 
-      await transaction.save();
+      await transaction.save({ session });
+
+      // Commit the transaction
+      await session.commitTransaction();
+
+      // Create audit log (fire-and-forget)
+      createAuditLog({
+        entityType: 'refund',
+        entityId: refund._id,
+        action: 'create',
+        status: 'success',
+        userId: refundData.createdBy,
+        metadata: {
+          transactionNumber: transaction.transactionNumber,
+          refundAmount: totalRefundAmount,
+          refundType
+        },
+        duration: Date.now() - startTime
+      });
 
       return refund;
     } catch (error) {
+      // Abort transaction on any error
+      await session.abortTransaction();
+
+      // Log the failure
+      createAuditLog({
+        entityType: 'refund',
+        entityId: transactionId,
+        action: 'create',
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userId: refundData.createdBy,
+        duration: Date.now() - startTime
+      });
+
       console.error('Error creating refund:', error);
       throw error;
+    } finally {
+      session.endSession();
     }
   }
 

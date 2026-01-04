@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { getNextSequence } from './Counter';
+import { getNextSequence } from './Counter.js';
 
 // Invoice status enum for proper state tracking
 export type InvoiceStatus = 'none' | 'pending' | 'generating' | 'completed' | 'failed';

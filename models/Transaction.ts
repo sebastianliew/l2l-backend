@@ -40,6 +40,22 @@ export interface ITransaction extends Document {
     convertedQuantity: number;
     sku?: string;
     itemType?: 'product' | 'fixed_blend' | 'custom_blend' | 'bundle' | 'miscellaneous' | 'consultation' | 'service';
+    // Custom blend data for storing ingredients when itemType is 'custom_blend'
+    customBlendData?: {
+      name: string;
+      ingredients: Array<{
+        productId: string;
+        name: string;
+        quantity: number;
+        unitOfMeasurementId: string;
+        unitName: string;
+        costPerUnit: number;
+      }>;
+      totalIngredientCost: number;
+      preparationNotes?: string;
+      mixedBy: string;
+      mixedAt: Date;
+    };
   }>;
   subtotal: number;
   discountAmount: number;
@@ -91,6 +107,26 @@ export interface ITransaction extends Document {
   refundableAmount?: number;
 }
 
+// Schema for custom blend ingredients
+const CustomBlendIngredientSchema = new Schema({
+  productId: { type: String, required: true },
+  name: { type: String, required: true },
+  quantity: { type: Number, required: true },
+  unitOfMeasurementId: { type: String, required: true },
+  unitName: { type: String, required: true },
+  costPerUnit: { type: Number, default: 0 }
+}, { _id: false });
+
+// Schema for custom blend data
+const CustomBlendDataSchema = new Schema({
+  name: { type: String, required: true },
+  ingredients: [CustomBlendIngredientSchema],
+  totalIngredientCost: { type: Number, required: true },
+  preparationNotes: { type: String },
+  mixedBy: { type: String, required: true },
+  mixedAt: { type: Date, required: true }
+}, { _id: false });
+
 const TransactionItemSchema = new Schema({
   productId: { type: String, required: true },
   name: { type: String, required: true },
@@ -110,7 +146,9 @@ const TransactionItemSchema = new Schema({
     type: String,
     enum: ['product', 'fixed_blend', 'custom_blend', 'bundle', 'miscellaneous', 'consultation', 'service'],
     default: 'product'
-  }
+  },
+  // Custom blend data for storing ingredients and blend details
+  customBlendData: { type: CustomBlendDataSchema }
 });
 
 const AddressSchema = new Schema({

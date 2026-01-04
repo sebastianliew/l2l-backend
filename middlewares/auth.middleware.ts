@@ -65,13 +65,20 @@ export const authenticateToken = async (
     }
 
     // Cache miss or expired - fetch from database
-    const user = await User.findById(decoded.userId).select('-password').lean() as IUser | null;
+    const userDoc = await User.findById(decoded.userId).select('-password').lean() as IUser | null;
 
-    if (!user) {
+    if (!userDoc) {
       userCache.delete(decoded.userId); // Clear stale cache entry
       res.status(401).json({ error: 'User not found' });
       return;
     }
+
+    // Add 'id' property since .lean() doesn't include Mongoose virtuals
+    // Controllers expect user.id (string) not user._id (ObjectId)
+    const user = {
+      ...userDoc,
+      id: userDoc._id?.toString() || decoded.userId
+    } as IUser;
 
     // Cache the user for future requests
     userCache.set(decoded.userId, { user, cachedAt: now });

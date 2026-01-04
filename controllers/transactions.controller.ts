@@ -129,10 +129,11 @@ export const getTransactionById = async (req: AuthenticatedRequest, res: Respons
 };
 
 // POST /api/transactions - Create transaction
-// FIXED: Synchronous invoice generation with MongoDB sessions for atomicity
+// FIX: Two-phase approach - transaction saved immediately (visible for updates),
+// then PDF generated separately. This prevents "unable to update item" during invoice generation.
+// The atomic counter (pre-save hook) handles transaction number uniqueness without sessions.
 export const createTransaction = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const startTime = Date.now();
-  const session = await mongoose.startSession();
 
   try {
     const transactionData = req.body;
@@ -195,33 +196,39 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
       delete transactionData.transactionNumber;
     }
 
-    // Start MongoDB transaction for atomic operations
-    session.startTransaction();
+    // ========================================================================
+    // PHASE 1: Create and save transaction (immediately visible for updates)
+    // The pre-save hook uses atomic $inc for transaction number - no session needed
+    // ========================================================================
+    const transaction = new Transaction({
+      ...transactionData,
+      createdBy: req.user?.id || 'system',
+      invoiceStatus: 'pending'
+    });
+
+    const savedTransaction = await transaction.save();
+    const transactionId = savedTransaction._id;
+
+    console.log('[Transaction] Phase 1 complete - Transaction saved and visible:', transactionId);
+
+    // ========================================================================
+    // PHASE 2: Generate invoice (document is now visible, updates won't conflict)
+    // PDF generation can fail without losing the transaction
+    // ========================================================================
+    const invoiceNumber = savedTransaction.transactionNumber;
+    let invoiceGenerated = false;
+    let emailSent = false;
+    let invoiceError: string | null = null;
 
     try {
-      // Create transaction with initial invoice status
-      const transaction = new Transaction({
-        ...transactionData,
-        createdBy: req.user?.id || 'system',
-        invoiceStatus: 'pending'
-      });
-
-      const savedTransaction = await transaction.save({ session });
-
-      console.log('[Transaction] Transaction saved, generating invoice synchronously:', savedTransaction._id);
-
-      // Generate invoice synchronously (client waits for result)
-      const invoiceNumber = savedTransaction.transactionNumber;
+      // Update status to generating (using findByIdAndUpdate for speed)
+      await Transaction.findByIdAndUpdate(transactionId, { invoiceStatus: 'generating' });
 
       // Ensure invoices directory exists
       const invoicesDir = path.join(process.cwd(), 'invoices');
       if (!fs.existsSync(invoicesDir)) {
         fs.mkdirSync(invoicesDir, { recursive: true });
       }
-
-      // Update status to generating
-      savedTransaction.invoiceStatus = 'generating';
-      await savedTransaction.save({ session });
 
       // Prepare invoice data
       const subtotal = savedTransaction.items.reduce((sum, item) => sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
@@ -264,20 +271,21 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
       const generator = new InvoiceGenerator();
       await generator.generateInvoice(invoiceData, invoiceFilePath);
 
-      // Save file locally (Azure removed per user request)
+      // Upload to blob storage
       await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
-      // Update transaction with invoice info
-      savedTransaction.invoiceGenerated = true;
-      savedTransaction.invoiceStatus = 'completed';
-      savedTransaction.invoiceNumber = invoiceNumber;
-      savedTransaction.invoicePath = relativeInvoicePath;
-      await savedTransaction.save({ session });
+      // Update transaction with invoice info (atomic update, no session needed)
+      await Transaction.findByIdAndUpdate(transactionId, {
+        invoiceGenerated: true,
+        invoiceStatus: 'completed',
+        invoiceNumber: invoiceNumber,
+        invoicePath: relativeInvoicePath
+      });
 
-      console.log('[Transaction] Invoice generated successfully:', invoiceNumber);
+      invoiceGenerated = true;
+      console.log('[Transaction] Phase 2 complete - Invoice generated:', invoiceNumber);
 
-      // Email sending (non-critical, don't fail transaction if email fails)
-      let emailSent = false;
+      // Email sending (non-critical)
       if (savedTransaction.customerEmail && emailService.isEnabled()) {
         try {
           console.log('[Transaction] Sending invoice email to:', savedTransaction.customerEmail);
@@ -293,10 +301,11 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
           );
 
           if (emailSent) {
-            savedTransaction.invoiceEmailSent = true;
-            savedTransaction.invoiceEmailSentAt = new Date();
-            savedTransaction.invoiceEmailRecipient = savedTransaction.customerEmail;
-            await savedTransaction.save({ session });
+            await Transaction.findByIdAndUpdate(transactionId, {
+              invoiceEmailSent: true,
+              invoiceEmailSentAt: new Date(),
+              invoiceEmailRecipient: savedTransaction.customerEmail
+            });
             console.log('[Transaction] Invoice email sent successfully');
           }
         } catch (emailError) {
@@ -305,65 +314,72 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
         }
       }
 
-      // Commit the transaction
-      await session.commitTransaction();
+    } catch (pdfError) {
+      // PDF generation failed - mark transaction but don't delete it
+      invoiceError = pdfError instanceof Error ? pdfError.message : 'Unknown error';
+      console.error('[Transaction] Invoice generation failed:', invoiceError);
 
-      // Create audit log (fire-and-forget, don't block response)
-      createAuditLog({
-        entityType: 'transaction',
-        entityId: savedTransaction._id,
-        action: 'create',
-        status: 'success',
-        userId: req.user?.id,
-        userEmail: req.user?.email,
-        metadata: {
-          transactionNumber: savedTransaction.transactionNumber,
-          totalAmount: savedTransaction.totalAmount,
-          invoiceGenerated: true,
-          emailSent
-        },
-        duration: Date.now() - startTime
+      await Transaction.findByIdAndUpdate(transactionId, {
+        invoiceStatus: 'failed',
+        invoiceError: invoiceError
       });
 
-      // Return complete response with actual status
-      res.status(201).json({
-        ...savedTransaction.toObject(),
-        _invoiceGenerated: true,
-        _emailSent: emailSent,
-        _invoiceGenerating: false
-      });
-
-    } catch (innerError) {
-      // Abort transaction on any error
-      await session.abortTransaction();
-
-      // Log the failure
-      createAuditLog({
-        entityType: 'transaction',
-        entityId: 'unknown',
-        action: 'create',
-        status: 'failed',
-        error: innerError instanceof Error ? innerError.message : 'Unknown error',
-        userId: req.user?.id,
-        userEmail: req.user?.email,
-        metadata: {
-          customerName: transactionData.customerName,
-          totalAmount: transactionData.totalAmount
-        },
-        duration: Date.now() - startTime
-      });
-
-      throw innerError;
+      // Transaction is still valid - PDF can be regenerated later
     }
+
+    // Create audit log (fire-and-forget)
+    createAuditLog({
+      entityType: 'transaction',
+      entityId: savedTransaction._id,
+      action: 'create',
+      status: 'success',
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+      metadata: {
+        transactionNumber: savedTransaction.transactionNumber,
+        totalAmount: savedTransaction.totalAmount,
+        invoiceGenerated,
+        invoiceError,
+        emailSent
+      },
+      duration: Date.now() - startTime
+    });
+
+    // Fetch final state to return accurate data
+    const finalTransaction = await Transaction.findById(transactionId);
+
+    // Return complete response
+    res.status(201).json({
+      ...(finalTransaction?.toObject() || savedTransaction.toObject()),
+      _invoiceGenerated: invoiceGenerated,
+      _emailSent: emailSent,
+      _invoiceGenerating: false,
+      _invoiceError: invoiceError
+    });
 
   } catch (error) {
     console.error('Error creating transaction:', error);
+
+    // Log the failure
+    createAuditLog({
+      entityType: 'transaction',
+      entityId: 'unknown',
+      action: 'create',
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+      metadata: {
+        customerName: req.body?.customerName,
+        totalAmount: req.body?.totalAmount
+      },
+      duration: Date.now() - startTime
+    });
+
     res.status(500).json({
       error: 'Failed to create transaction',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
-  } finally {
-    session.endSession();
   }
 };
 

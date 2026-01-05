@@ -370,7 +370,6 @@ productSchema.methods.needsUrgentRestock = function(): boolean {
 
 // Method to auto-create reference data and populate ObjectIds
 productSchema.methods.populateReferences = async function() {
-  try {
     const { Category } = await import('./Category.js');
     const { Brand } = await import('./Brand.js');
     const { UnitOfMeasurement } = await import('./UnitOfMeasurement.js');
@@ -436,9 +435,6 @@ productSchema.methods.populateReferences = async function() {
     }
 
     return this;
-  } catch (error) {
-    throw error;
-  }
 };
 
 // Method to convert between units

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Transaction, ITransaction } from '../../models/Transaction.js';
+import { Transaction } from '../../models/Transaction.js';
 
 interface SalesTrendData {
   date: string;
@@ -137,7 +137,6 @@ async function generateDailyData(transactions: LeanTransaction[], startDate: Dat
 async function generateCategoryData(transactions: LeanTransaction[]): Promise<CategoryData[]> {
   const categoryMap = new Map<string, number>();
   let totalRevenue = 0;
-  let itemsProcessed = 0;
 
   transactions.forEach(transaction => {
     if (!transaction.items || !Array.isArray(transaction.items)) {
@@ -157,7 +156,6 @@ async function generateCategoryData(transactions: LeanTransaction[]): Promise<Ca
       if (revenue > 0) {
         categoryMap.set(category, (categoryMap.get(category) || 0) + revenue);
         totalRevenue += revenue;
-        itemsProcessed++;
       }
     });
   });
@@ -175,7 +173,6 @@ async function generateCategoryData(transactions: LeanTransaction[]): Promise<Ca
 
 async function generateTopProductsData(transactions: LeanTransaction[]): Promise<TopProductData[]> {
   const productMap = new Map<string, { revenue: number; quantity: number }>();
-  let productsProcessed = 0;
 
   transactions.forEach(transaction => {
     if (!transaction.items || !Array.isArray(transaction.items)) {
@@ -196,7 +193,6 @@ async function generateTopProductsData(transactions: LeanTransaction[]): Promise
         existing.revenue += revenue;
         existing.quantity += quantity;
         productMap.set(productName, existing);
-        productsProcessed++;
       }
     });
   });

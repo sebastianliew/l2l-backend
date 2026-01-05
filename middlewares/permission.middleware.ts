@@ -133,8 +133,22 @@ export const requireDraftOrEditPermission = () => {
         return;
       }
 
-      // For drafts: check canEditDrafts AND ownership
+      // For drafts: check permissions with proper hierarchy
       if (transaction.status === 'draft') {
+        // Super admin can edit any draft
+        if (user.role === 'super_admin') {
+          next();
+          return;
+        }
+
+        // Users with canEditTransactions can edit any draft (they can edit completed transactions anyway)
+        const canEditTransactions = permissionService.hasPermission(user, 'transactions', 'canEditTransactions');
+        if (canEditTransactions) {
+          next();
+          return;
+        }
+
+        // Otherwise, check canEditDrafts AND ownership (for staff who can only edit their own drafts)
         const canEditDrafts = permissionService.hasPermission(user, 'transactions', 'canEditDrafts');
         const isOwner = transaction.createdBy?.toString() === user._id?.toString();
 
@@ -151,7 +165,8 @@ export const requireDraftOrEditPermission = () => {
           transactionId: id,
           createdBy: transaction.createdBy,
           isOwner,
-          canEditDrafts
+          canEditDrafts,
+          canEditTransactions
         });
 
         res.status(403).json({

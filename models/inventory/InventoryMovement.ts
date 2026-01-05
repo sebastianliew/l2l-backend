@@ -140,6 +140,11 @@ InventoryMovementSchema.methods.updateProductStock = async function() {
     let stockChange = 0;
     switch (this.movementType) {
       case 'sale':
+      case 'fixed_blend':
+      case 'bundle_sale':
+      case 'bundle_blend_ingredient':
+      case 'blend_ingredient':
+      case 'custom_blend':
         stockChange = -this.convertedQuantity;
         break;
       case 'return':

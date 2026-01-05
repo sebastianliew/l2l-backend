@@ -9,6 +9,7 @@ import { blobStorageService } from '../services/BlobStorageService.js';
 import { PermissionService } from '../lib/permissions/PermissionService.js';
 import type { FeaturePermissions } from '../lib/permissions/types.js';
 import { createAuditLog } from '../models/AuditLog.js';
+import { transactionInventoryService } from '../services/TransactionInventoryService.js';
 
 const permissionService = PermissionService.getInstance();
 
@@ -342,19 +343,60 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
     }
 
     // ========================================================================
-    // PHASE 1: Create and save transaction (immediately visible for updates)
-    // The pre-save hook uses atomic $inc for transaction number - no session needed
+    // PHASE 1: Create and save transaction with inventory deduction (atomic)
+    // Uses MongoDB session for atomicity - if inventory deduction fails,
+    // transaction is rolled back to maintain data consistency.
     // ========================================================================
-    const transaction = new Transaction({
-      ...transactionData,
-      createdBy: req.user?.id || 'system',
-      invoiceStatus: 'pending'
-    });
+    const session = await mongoose.startSession();
+    let savedTransaction;
+    let transactionId;
 
-    const savedTransaction = await transaction.save();
-    const transactionId = savedTransaction._id;
+    try {
+      session.startTransaction();
 
-    console.log('[Transaction] Transaction saved:', transactionId);
+      const transaction = new Transaction({
+        ...transactionData,
+        createdBy: req.user?.id || 'system',
+        invoiceStatus: 'pending'
+      });
+
+      savedTransaction = await transaction.save({ session });
+      transactionId = savedTransaction._id;
+
+      console.log('[Transaction] Transaction saved:', transactionId);
+
+      // ========================================================================
+      // PHASE 2: Process inventory deduction (skip for draft transactions)
+      // Deducts stock for products, fixed blends, and bundles.
+      // Custom blends are handled separately by CustomBlendService.
+      // ========================================================================
+      if (savedTransaction.status !== 'draft') {
+        const inventoryResult = await transactionInventoryService.processTransactionInventory(
+          savedTransaction,
+          req.user?.id || 'system',
+          session
+        );
+
+        if (inventoryResult.errors.length > 0) {
+          // Log warnings but don't fail - system allows negative stock
+          console.warn('[Transaction] Inventory processing had errors:', inventoryResult.errors);
+        }
+
+        console.log(`[Transaction] Inventory processed: ${inventoryResult.movements.length} movements created`);
+      } else {
+        console.log('[Transaction] Skipping inventory deduction for draft transaction');
+      }
+
+      await session.commitTransaction();
+      console.log('[Transaction] Session committed successfully');
+
+    } catch (sessionError) {
+      await session.abortTransaction();
+      console.error('[Transaction] Session aborted due to error:', sessionError);
+      throw sessionError;
+    } finally {
+      session.endSession();
+    }
 
     // Create audit log (fire-and-forget)
     createAuditLog({
@@ -451,7 +493,13 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
     // Check if this is a draft being converted to a completed transaction
     const wasDraft = existingTransaction.status === 'draft';
     const isBeingCompleted = updateData.status && updateData.status !== 'draft';
-    const needsInvoice = wasDraft && isBeingCompleted && !existingTransaction.invoiceGenerated;
+    const needsInventoryDeduction = wasDraft && isBeingCompleted;
+    const needsInvoice = needsInventoryDeduction && !existingTransaction.invoiceGenerated;
+
+    // Check if this is a completed transaction being cancelled (needs inventory reversal)
+    const wasCompleted = existingTransaction.status === 'completed';
+    const isBeingCancelled = updateData.status === 'cancelled';
+    const needsInventoryReversal = wasCompleted && isBeingCancelled;
 
     // Update the transaction first
     const updatedTransaction = await Transaction.findByIdAndUpdate(
@@ -465,10 +513,78 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
-    // If converting from draft to completed, generate invoice
-    if (needsInvoice) {
-      console.log('[Transaction] Draft being converted to completed, generating invoice:', id);
+    // If converting from draft to completed, process inventory deduction
+    if (needsInventoryDeduction) {
+      console.log('[Transaction] Draft being converted to completed, processing inventory:', id);
 
+      try {
+        const inventorySession = await mongoose.startSession();
+        try {
+          inventorySession.startTransaction();
+
+          const inventoryResult = await transactionInventoryService.processTransactionInventory(
+            updatedTransaction,
+            req.user?.id || 'system',
+            inventorySession
+          );
+
+          await inventorySession.commitTransaction();
+          console.log(`[Transaction] Inventory processed for draft conversion: ${inventoryResult.movements.length} movements`);
+
+          if (inventoryResult.errors.length > 0) {
+            console.warn('[Transaction] Inventory processing had errors:', inventoryResult.errors);
+          }
+        } catch (invError) {
+          await inventorySession.abortTransaction();
+          console.error('[Transaction] Inventory processing failed for draft conversion:', invError);
+          // Continue - inventory can be reconciled later
+        } finally {
+          inventorySession.endSession();
+        }
+      } catch (sessionError) {
+        console.error('[Transaction] Failed to create inventory session:', sessionError);
+      }
+    }
+
+    // If cancelling a completed transaction, reverse inventory deductions
+    if (needsInventoryReversal) {
+      console.log('[Transaction] Completed transaction being cancelled, reversing inventory:', id);
+
+      try {
+        const reversalSession = await mongoose.startSession();
+        try {
+          reversalSession.startTransaction();
+
+          const reversalResult = await transactionInventoryService.reverseTransactionInventory(
+            existingTransaction.transactionNumber,
+            req.user?.id || 'system',
+            reversalSession
+          );
+
+          await reversalSession.commitTransaction();
+          console.log(`[Transaction] Inventory reversed: ${reversalResult.reversedCount}/${reversalResult.originalMovementCount} movements`);
+
+          if (reversalResult.errors.length > 0) {
+            console.warn('[Transaction] Inventory reversal had errors:', reversalResult.errors);
+          }
+          if (reversalResult.warnings.length > 0) {
+            console.log('[Transaction] Inventory reversal warnings:', reversalResult.warnings);
+          }
+        } catch (reversalError) {
+          await reversalSession.abortTransaction();
+          console.error('[Transaction] Inventory reversal failed:', reversalError);
+          // Continue - cancellation succeeds, inventory can be reconciled manually
+        } finally {
+          reversalSession.endSession();
+        }
+      } catch (sessionError) {
+        console.error('[Transaction] Failed to create reversal session:', sessionError);
+      }
+    }
+
+    // If converting from draft to completed AND no invoice exists, generate invoice
+    if (needsInvoice) {
+      console.log('[Transaction] Generating invoice:', id);
       try {
         // Update status to generating
         await Transaction.findByIdAndUpdate(id, { invoiceStatus: 'generating' });

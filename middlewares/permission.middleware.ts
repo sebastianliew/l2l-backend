@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth.middleware.js';
 import { PermissionService } from '../lib/permissions/PermissionService.js';
 import type { FeaturePermissions } from '../lib/permissions/types.js';
+import { Transaction } from '../models/Transaction.js';
 
 const permissionService = PermissionService.getInstance();
 
@@ -104,5 +105,78 @@ export const requireAnyPermission = (permissions: Array<{ category: keyof Featur
     }
 
     next();
+  };
+};
+
+/**
+ * Middleware to check permission for editing transactions.
+ * - For drafts: Requires canEditDrafts AND user must be the creator
+ * - For non-drafts: Requires canEditTransactions
+ */
+export const requireDraftOrEditPermission = () => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    const user = req.user;
+
+    if (!user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { id } = req.params;
+
+    try {
+      // Fetch the transaction to check its status and owner
+      const transaction = await Transaction.findById(id).select('status createdBy').lean();
+
+      if (!transaction) {
+        res.status(404).json({ error: 'Transaction not found' });
+        return;
+      }
+
+      // For drafts: check canEditDrafts AND ownership
+      if (transaction.status === 'draft') {
+        const canEditDrafts = permissionService.hasPermission(user, 'transactions', 'canEditDrafts');
+        const isOwner = transaction.createdBy?.toString() === user._id?.toString();
+
+        if (canEditDrafts && isOwner) {
+          next();
+          return;
+        }
+
+        // Debug logging for draft permission checks
+        console.log('[Permission Debug - Draft]', {
+          userId: user._id,
+          username: user.username,
+          role: user.role,
+          transactionId: id,
+          createdBy: transaction.createdBy,
+          isOwner,
+          canEditDrafts
+        });
+
+        res.status(403).json({
+          error: 'Permission denied',
+          required: { category: 'transactions', permission: 'canEditDrafts' },
+          message: isOwner ? 'You do not have permission to edit drafts' : 'You can only edit your own drafts'
+        });
+        return;
+      }
+
+      // For non-drafts: require canEditTransactions
+      const canEdit = permissionService.hasPermission(user, 'transactions', 'canEditTransactions');
+
+      if (canEdit) {
+        next();
+        return;
+      }
+
+      res.status(403).json({
+        error: 'Permission denied',
+        required: { category: 'transactions', permission: 'canEditTransactions' }
+      });
+    } catch (error) {
+      console.error('Error in requireDraftOrEditPermission middleware:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   };
 };

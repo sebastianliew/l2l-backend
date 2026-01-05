@@ -1,6 +1,6 @@
 import express, { type IRouter } from 'express';
 import { authenticateToken } from '../middlewares/auth.middleware.js';
-import { requirePermission } from '../middlewares/permission.middleware.js';
+import { requirePermission, requireDraftOrEditPermission } from '../middlewares/permission.middleware.js';
 import {
   getTransactions,
   getTransactionById,
@@ -45,7 +45,8 @@ router.post('/:id/invoice', requirePermission('transactions', 'canViewTransactio
 router.post('/:id/send-invoice-email', requirePermission('transactions', 'canViewTransactions'), sendInvoiceEmail);
 
 // PUT /api/transactions/:id - Update transaction
-router.put('/:id', requirePermission('transactions', 'canEditTransactions'), updateTransaction);
+// Uses draft-aware permission: drafts require canEditDrafts + ownership, completed transactions require canEditTransactions
+router.put('/:id', requireDraftOrEditPermission(), updateTransaction);
 
 // DELETE /api/transactions/:id - Delete transaction
 router.delete('/:id', requirePermission('transactions', 'canDeleteTransactions'), deleteTransaction);

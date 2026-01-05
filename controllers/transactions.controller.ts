@@ -277,6 +277,18 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
+    // Validate all items have valid names (prevent "Unknown Item" entries)
+    const invalidItems = transactionData.items.filter((item: { name?: string }) =>
+      !item.name || item.name.trim() === '' || item.name === 'Unknown Item'
+    );
+    if (invalidItems.length > 0) {
+      res.status(400).json({
+        error: `${invalidItems.length} item(s) have missing or invalid names`,
+        details: 'Items must have valid product names'
+      });
+      return;
+    }
+
     // Validate discount permissions
     if (req.user) {
       // Check bill-level discount
@@ -413,6 +425,20 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ error: 'Invalid transaction ID' });
       return;
+    }
+
+    // Validate all items have valid names if items are being updated
+    if (updateData.items && Array.isArray(updateData.items)) {
+      const invalidItems = updateData.items.filter((item: { name?: string }) =>
+        !item.name || item.name.trim() === '' || item.name === 'Unknown Item'
+      );
+      if (invalidItems.length > 0) {
+        res.status(400).json({
+          error: `${invalidItems.length} item(s) have missing or invalid names`,
+          details: 'Items must have valid product names'
+        });
+        return;
+      }
     }
 
     // Fetch current transaction to check if we're converting from draft

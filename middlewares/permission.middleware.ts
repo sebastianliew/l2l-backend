@@ -110,7 +110,7 @@ export const requireAnyPermission = (permissions: Array<{ category: keyof Featur
 
 /**
  * Middleware to check permission for editing transactions.
- * - For drafts: Requires canEditDrafts AND user must be the creator
+ * - For drafts: Requires canEditDrafts (any user with this permission can edit any draft)
  * - For non-drafts: Requires canEditTransactions
  */
 export const requireDraftOrEditPermission = () => {
@@ -148,11 +148,10 @@ export const requireDraftOrEditPermission = () => {
           return;
         }
 
-        // Otherwise, check canEditDrafts AND ownership (for staff who can only edit their own drafts)
+        // Otherwise, check canEditDrafts (allows staff to edit any draft for delegation workflow)
         const canEditDrafts = permissionService.hasPermission(user, 'transactions', 'canEditDrafts');
-        const isOwner = transaction.createdBy?.toString() === user._id?.toString();
 
-        if (canEditDrafts && isOwner) {
+        if (canEditDrafts) {
           next();
           return;
         }
@@ -164,7 +163,6 @@ export const requireDraftOrEditPermission = () => {
           role: user.role,
           transactionId: id,
           createdBy: transaction.createdBy,
-          isOwner,
           canEditDrafts,
           canEditTransactions
         });
@@ -172,7 +170,7 @@ export const requireDraftOrEditPermission = () => {
         res.status(403).json({
           error: 'Permission denied',
           required: { category: 'transactions', permission: 'canEditDrafts' },
-          message: isOwner ? 'You do not have permission to edit drafts' : 'You can only edit your own drafts'
+          message: 'You do not have permission to edit drafts'
         });
         return;
       }

@@ -354,8 +354,12 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
     try {
       session.startTransaction();
 
+      // Set type to COMPLETED for non-draft transactions
+      const transactionType = transactionData.status !== 'draft' ? 'COMPLETED' : 'DRAFT';
+
       const transaction = new Transaction({
         ...transactionData,
+        type: transactionType,
         createdBy: req.user?.id || 'system',
         invoiceStatus: 'pending'
       });
@@ -495,6 +499,11 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
     const isBeingCompleted = updateData.status && updateData.status !== 'draft';
     const needsInventoryDeduction = wasDraft && isBeingCompleted;
     const needsInvoice = needsInventoryDeduction && !existingTransaction.invoiceGenerated;
+
+    // When a draft is being completed, update type to COMPLETED
+    if (wasDraft && isBeingCompleted) {
+      updateData.type = 'COMPLETED';
+    }
 
     // Check if this is a completed transaction being cancelled (needs inventory reversal)
     const wasCompleted = existingTransaction.status === 'completed';

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import path from 'path';
 import fs from 'fs';
 import { Transaction } from '../models/Transaction.js';
+import { getNextSequence } from '../models/Counter.js';
 import { InvoiceGenerator } from '../services/invoiceGenerator.js';
 import { emailService } from '../services/EmailService.js';
 import { blobStorageService } from '../services/BlobStorageService.js';
@@ -1061,19 +1062,31 @@ export const saveDraft = async (req: AuthenticatedRequest, res: Response): Promi
       draftId: draftId // Store the client-side draft ID for reference
     };
 
-    // Check if draft already exists (for updates)
-    let transaction = await Transaction.findOne({ draftId, createdBy: req.user.id });
+    // Use atomic findOneAndUpdate with upsert to prevent race conditions
+    // This ensures only one draft is created even with concurrent requests
+    const savedTransaction = await Transaction.findOneAndUpdate(
+      { draftId, createdBy: req.user.id },
+      {
+        $set: {
+          ...transactionData,
+          updatedAt: new Date()
+        },
+        $setOnInsert: {
+          createdAt: new Date()
+        }
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
 
-    if (transaction) {
-      // Update existing draft
-      Object.assign(transaction, transactionData);
-      transaction.updatedAt = new Date();
-    } else {
-      // Create new draft
-      transaction = new Transaction(transactionData);
+    // Generate transaction number for new drafts (pre-save hook doesn't run with findOneAndUpdate)
+    if (!savedTransaction.transactionNumber) {
+      const date = new Date();
+      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+      const counterId = `txn-${dateStr}`;
+      const seq = await getNextSequence(counterId);
+      savedTransaction.transactionNumber = `TXN-${dateStr}-${String(seq).padStart(4, '0')}`;
+      await savedTransaction.save();
     }
-
-    const savedTransaction = await transaction.save();
 
     res.status(200).json({
       success: true,

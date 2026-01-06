@@ -255,6 +255,17 @@ TransactionSchema.index({ status: 1 });
 TransactionSchema.index({ paymentStatus: 1 });
 TransactionSchema.index({ createdBy: 1 });
 
+// Unique compound index to prevent duplicate drafts for the same user
+// partialFilterExpression ensures only documents with draftId (string type) are indexed
+// This prevents duplicate drafts while allowing regular transactions without draftId
+TransactionSchema.index(
+  { draftId: 1, createdBy: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { draftId: { $type: 'string' } }
+  }
+);
+
 // Compound indexes for common query patterns (significant performance improvement)
 TransactionSchema.index({ status: 1, transactionDate: -1 }); // Status filtering with date sort
 TransactionSchema.index({ type: 1, status: 1, createdAt: -1 }); // Report queries

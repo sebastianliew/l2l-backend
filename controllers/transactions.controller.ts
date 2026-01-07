@@ -160,12 +160,16 @@ interface AuthenticatedRequest extends Request {
 // GET /api/transactions - Get all transactions with pagination
 export const getTransactions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { 
-      search, 
-      page = '1', 
-      limit = '20' 
+    const {
+      search,
+      page = '1',
+      limit = '20',
+      paymentStatus,
+      status,
+      dateFrom,
+      dateTo
     } = req.query;
-    
+
     const pageNumber = Math.max(1, parseInt(page as string, 10));
     const limitNumber = Math.max(1, Math.min(100, parseInt(limit as string, 10))); // Cap at 100
     const skip = (pageNumber - 1) * limitNumber;
@@ -177,19 +181,51 @@ export const getTransactions = async (req: AuthenticatedRequest, res: Response):
         customerName?: { $regex: unknown; $options: string };
         customerEmail?: { $regex: unknown; $options: string };
       }>;
+      paymentStatus?: string;
+      status?: string;
+      transactionDate?: {
+        $gte?: Date;
+        $lte?: Date;
+      };
     }
 
     const filter: TransactionFilter = {};
+
+    // Payment status filter
+    if (paymentStatus && typeof paymentStatus === 'string') {
+      filter.paymentStatus = paymentStatus;
+    }
+
+    // Transaction status filter
+    if (status && typeof status === 'string') {
+      filter.status = status;
+    }
+
+    // Date range filter
+    if (dateFrom || dateTo) {
+      filter.transactionDate = {};
+      if (dateFrom && typeof dateFrom === 'string') {
+        filter.transactionDate.$gte = new Date(dateFrom);
+      }
+      if (dateTo && typeof dateTo === 'string') {
+        // Set to end of day for inclusive date range
+        const endDate = new Date(dateTo);
+        endDate.setHours(23, 59, 59, 999);
+        filter.transactionDate.$lte = endDate;
+      }
+    }
+
+    // Text search filter
     if (search) {
       // Split search term into words for better multi-word matching
       const searchTerm = search as string;
       const searchWords = searchTerm.trim().split(/\s+/);
-      
+
       if (searchWords.length > 1) {
         // For multi-word searches, create patterns that match all words in any order
         const wordPatterns = searchWords.map(word => `(?=.*${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`);
         const combinedPattern = `^${wordPatterns.join('')}.*`;
-        
+
         filter.$or = [
           { transactionNumber: { $regex: searchTerm, $options: 'i' } },
           { customerName: { $regex: combinedPattern, $options: 'i' } },

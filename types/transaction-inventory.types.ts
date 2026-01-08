@@ -24,6 +24,10 @@ export interface TransactionItem {
   baseUnit: string;
   convertedQuantity: number;
   itemType?: 'product' | 'fixed_blend' | 'custom_blend' | 'bundle' | 'miscellaneous' | 'consultation' | 'service';
+  // Sale type for partial bottle tracking
+  saleType?: 'quantity' | 'volume';
+  // Container/bottle ID for targeted partial sales
+  containerId?: string;
   customBlendData?: {
     name: string;
     ingredients: Array<{

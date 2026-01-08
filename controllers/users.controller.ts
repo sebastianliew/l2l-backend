@@ -281,7 +281,6 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
     
     // Handle permissions
     if (featurePermissions !== undefined) {
-      
       // Merge discount permissions from both sources if they exist
       if (discountPermissions || featurePermissions.discounts) {
         updateData.featurePermissions = {
@@ -295,6 +294,7 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
         updateData.featurePermissions = featurePermissions;
       }
     } else if (discountPermissions !== undefined) {
+      console.log('[UpdateUser Debug] Processing only discountPermissions');
       // If only discountPermissions is provided, merge it into existing featurePermissions
       updateData.featurePermissions = {
         ...user.featurePermissions,
@@ -308,13 +308,11 @@ export const updateUser = async (req: Request, res: Response): Promise<Response 
     if (status !== undefined) updateData.status = status;
     if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth;
 
-
     const updatedUser = await User.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     ).select('-password');
-
 
     return res.json({
       message: 'User updated successfully',

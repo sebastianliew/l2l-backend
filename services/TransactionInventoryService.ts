@@ -98,6 +98,7 @@ export class TransactionInventoryService {
 
   /**
    * Process regular product sale
+   * Supports both full container sales (saleType: 'quantity') and partial bottle sales (saleType: 'volume')
    */
   private async processProductItem(
     item: TransactionItem,
@@ -110,6 +111,10 @@ export class TransactionInventoryService {
       throw new Error(`Product not found: ${item.productId}`);
     }
 
+    // Determine if this is a partial/volume sale (selling from an open bottle)
+    const isPartialSale = item.saleType === 'volume';
+    const containerStatus = isPartialSale ? 'partial' : undefined;
+
     // Create inventory movement
     const movement = new InventoryMovement({
       productId: new mongoose.Types.ObjectId(item.productId),
@@ -119,9 +124,12 @@ export class TransactionInventoryService {
       baseUnit: item.baseUnit || 'unit',
       convertedQuantity: item.convertedQuantity || item.quantity,
       reference: transactionRef,
-      notes: `Sale: ${item.name} x ${item.quantity}`,
+      notes: `Sale: ${item.name} x ${item.quantity}${isPartialSale ? ' (partial bottle)' : ''}`,
       createdBy: userId,
-      productName: item.name
+      productName: item.name,
+      // Container tracking for partial sales
+      containerStatus: containerStatus,
+      containerId: item.containerId
     });
 
     if (session) {
@@ -130,10 +138,21 @@ export class TransactionInventoryService {
       await movement.save();
     }
 
-    // Update product stock
-    await movement.updateProductStock();
+    // For partial/volume sales with container capacity, use bottle-level tracking
+    if (isPartialSale && product.containerCapacity && product.containerCapacity > 0) {
+      // Use the enhanced handlePartialContainerSale with bottle tracking
+      await product.handlePartialContainerSale(item.convertedQuantity || item.quantity, {
+        containerId: item.containerId,
+        transactionRef: transactionRef,
+        userId: userId
+      });
+      console.log(`[TransactionInventoryService] Deducted ${item.quantity} of ${item.name} from bottle${item.containerId ? ` (${item.containerId})` : ' (auto-FIFO)'}`);
+    } else {
+      // Standard stock deduction via movement
+      await movement.updateProductStock();
+      console.log(`[TransactionInventoryService] Deducted ${item.quantity} of ${item.name} (product)`);
+    }
 
-    console.log(`[TransactionInventoryService] Deducted ${item.quantity} of ${item.name} (product)`);
     return [movement];
   }
 

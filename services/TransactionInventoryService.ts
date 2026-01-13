@@ -29,6 +29,21 @@ export class TransactionInventoryService {
       warnings: []
     };
 
+    // CRITICAL: Check if inventory movements already exist for this transaction
+    // This prevents duplicate deductions from retried requests or race conditions
+    const existingMovements = await InventoryMovement.find({
+      reference: transaction.transactionNumber,
+      movementType: { $in: ['sale', 'fixed_blend', 'bundle_sale', 'bundle_blend_ingredient', 'blend_ingredient', 'custom_blend'] }
+    }).session(session || null);
+
+    if (existingMovements.length > 0) {
+      console.log(`[TransactionInventoryService] DUPLICATE PREVENTED: Inventory movements already exist for ${transaction.transactionNumber} (${existingMovements.length} movements). Returning existing movements.`);
+      result.warnings.push(`Inventory movements already exist for this transaction (${existingMovements.length} movements). Skipping to prevent duplicate deduction.`);
+      // Return existing movements instead of creating duplicates
+      result.movements = existingMovements;
+      return result;
+    }
+
     for (const item of transaction.items) {
       try {
         const itemMovements = await this.processItem(

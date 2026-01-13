@@ -639,10 +639,33 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
 
     // If converting from draft to completed AND no invoice exists, generate invoice
     if (needsInvoice) {
-      console.log('[Transaction] Generating invoice:', id);
+      console.log('[Transaction] Attempting invoice generation:', id);
+
+      // ATOMIC LOCK: Only proceed if we can atomically set invoiceStatus to 'generating'
+      // This prevents multiple concurrent requests from generating duplicate invoices
+      const lockedTransaction = await Transaction.findOneAndUpdate(
+        {
+          _id: id,
+          invoiceGenerated: { $ne: true },
+          invoiceStatus: { $nin: ['generating', 'completed'] }
+        },
+        { $set: { invoiceStatus: 'generating' } },
+        { new: true }
+      );
+
+      if (!lockedTransaction) {
+        console.log('[Transaction] Invoice generation already in progress or completed, skipping:', id);
+        // Invoice is already being generated or was generated - return current state
+        const currentTransaction = await Transaction.findById(id);
+        res.status(200).json({
+          ...currentTransaction?.toObject(),
+          _invoiceSkipped: true,
+          _reason: 'Invoice generation already in progress or completed'
+        });
+        return;
+      }
+
       try {
-        // Update status to generating
-        await Transaction.findByIdAndUpdate(id, { invoiceStatus: 'generating' });
 
         // Ensure invoices directory exists
         const invoicesDir = path.join(process.cwd(), 'invoices');

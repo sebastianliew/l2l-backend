@@ -109,6 +109,31 @@ export class RefundService {
         throw new Error('Transaction cannot be refunded');
       }
 
+      // DUPLICATE PREVENTION: Check for recent refunds with the SAME ITEMS (within 5 seconds)
+      // This prevents duplicate refunds from rapid clicks or retried requests
+      // but allows legitimate sequential partial refunds with different items
+      const requestedProductIds = refundData.items.map(item => item.productId).sort();
+
+      const recentRefunds = await Refund.find({
+        transactionId,
+        createdAt: { $gte: new Date(Date.now() - 5000) }, // Within last 5 seconds
+        status: { $in: ['pending', 'approved', 'completed'] } // Only check non-rejected refunds
+      }).session(session);
+
+      // Check if any recent refund has the same items
+      const isDuplicateRefund = recentRefunds.some(existingRefund => {
+        const existingProductIds = existingRefund.items
+          .map((item: { productId: string }) => item.productId)
+          .sort();
+        // Check if the product IDs overlap (same items being refunded twice)
+        return requestedProductIds.some(id => existingProductIds.includes(id));
+      });
+
+      if (isDuplicateRefund) {
+        console.log(`[RefundService] DUPLICATE PREVENTED: Recent refund for same items found for transaction ${transactionId}`);
+        throw new Error('A refund request for these items was recently submitted. Please wait and try again.');
+      }
+
       // Calculate refund amounts and validate items
       let totalRefundAmount = 0;
       const refundItems = [];

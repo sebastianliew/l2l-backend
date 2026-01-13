@@ -58,6 +58,9 @@ async function generateInvoiceAsync(
     // Prepare invoice data
     const subtotal = savedTransaction.items.reduce((sum, item) => sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
     const totalDiscounts = savedTransaction.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
+    const additionalDiscount = savedTransaction.discountAmount ?? 0;
+    // Calculate correct total from subtotal minus discounts
+    const calculatedTotal = subtotal - totalDiscounts - additionalDiscount;
 
     const invoiceData = {
       invoiceNumber,
@@ -76,8 +79,8 @@ async function generateInvoiceAsync(
       })),
       subtotal,
       discountAmount: totalDiscounts,
-      additionalDiscount: savedTransaction.discountAmount ?? 0,
-      totalAmount: savedTransaction.totalAmount,
+      additionalDiscount,
+      totalAmount: calculatedTotal,
       paymentMethod: savedTransaction.paymentMethod,
       paymentStatus: savedTransaction.paymentStatus,
       notes: savedTransaction.notes,
@@ -99,13 +102,19 @@ async function generateInvoiceAsync(
     // Upload to blob storage
     await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
-    // Update transaction with invoice info
-    await Transaction.findByIdAndUpdate(transactionId, {
+    // Update transaction with invoice info and correct total if needed
+    const invoiceUpdateData: Record<string, unknown> = {
       invoiceGenerated: true,
       invoiceStatus: 'completed',
       invoiceNumber: invoiceNumber,
       invoicePath: relativeInvoicePath
-    });
+    };
+    // Also correct totalAmount if it differs from calculated (fixes old transactions with incorrect totals)
+    if (savedTransaction.totalAmount !== calculatedTotal) {
+      console.log('[Transaction] Correcting stored totalAmount from', savedTransaction.totalAmount, 'to', calculatedTotal);
+      invoiceUpdateData.totalAmount = calculatedTotal;
+    }
+    await Transaction.findByIdAndUpdate(transactionId, invoiceUpdateData);
 
     console.log('[Transaction] Background invoice generated:', invoiceNumber);
 
@@ -117,7 +126,7 @@ async function generateInvoiceAsync(
           savedTransaction.customerName,
           invoiceNumber,
           invoiceFilePath,
-          savedTransaction.totalAmount,
+          calculatedTotal, // Use calculated total instead of stored value
           savedTransaction.transactionDate,
           savedTransaction.paymentStatus || 'pending'
         );
@@ -805,6 +814,10 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
     const subtotal = transaction.items.reduce((sum, item) => sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
     const totalDiscounts = transaction.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
 
+    // Calculate correct total from subtotal minus discounts
+    const additionalDiscount = transaction.discountAmount ?? 0;
+    const calculatedTotal = subtotal - totalDiscounts - additionalDiscount;
+
     const invoiceData = {
       invoiceNumber,
       transactionNumber: transaction.transactionNumber,
@@ -822,8 +835,8 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
       })),
       subtotal,
       discountAmount: totalDiscounts,
-      additionalDiscount: transaction.discountAmount ?? 0,
-      totalAmount: transaction.totalAmount,
+      additionalDiscount,
+      totalAmount: calculatedTotal,
       paymentMethod: transaction.paymentMethod,
       paymentStatus: transaction.paymentStatus,
       notes: transaction.notes,
@@ -847,13 +860,19 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
     // Upload to Azure Blob Storage (or keep local if not configured)
     await blobStorageService.uploadFile(invoiceFilePath, invoiceFileName);
 
-    // Update transaction with invoice info (use findByIdAndUpdate to avoid full document validation)
-    await Transaction.findByIdAndUpdate(id, {
+    // Update transaction with invoice info and correct total if needed (use findByIdAndUpdate to avoid full document validation)
+    const updateData: Record<string, unknown> = {
       invoiceGenerated: true,
       invoiceNumber,
       invoicePath: relativeInvoicePath,
       lastModifiedBy: req.user?.id || 'system'
-    });
+    };
+    // Also correct totalAmount if it differs from calculated (fixes old transactions with incorrect totals)
+    if (transaction.totalAmount !== calculatedTotal) {
+      console.log('[Invoice] Correcting stored totalAmount from', transaction.totalAmount, 'to', calculatedTotal);
+      updateData.totalAmount = calculatedTotal;
+    }
+    await Transaction.findByIdAndUpdate(id, updateData);
 
     console.log('[Invoice] Invoice generated successfully:', invoiceNumber);
 
@@ -870,7 +889,7 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
           transaction.customerName,
           invoiceNumber,
           invoiceFilePath,
-          transaction.totalAmount,
+          calculatedTotal, // Use calculated total instead of stored value
           transaction.transactionDate,
           transaction.paymentStatus || 'pending'
         );
@@ -973,6 +992,10 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
     const subtotal = transaction.items.reduce((sum, item) => sum + ((item.unitPrice ?? 0) * (item.quantity ?? 0)), 0);
     const totalDiscounts = transaction.items.reduce((sum, item) => sum + (item.discountAmount ?? 0), 0);
 
+    // Calculate correct total from subtotal minus discounts
+    const additionalDiscount = transaction.discountAmount ?? 0;
+    const calculatedTotal = subtotal - totalDiscounts - additionalDiscount;
+
     const invoiceData = {
       invoiceNumber,
       transactionNumber: transaction.transactionNumber,
@@ -990,8 +1013,8 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
       })),
       subtotal,
       discountAmount: totalDiscounts,
-      additionalDiscount: transaction.discountAmount ?? 0,
-      totalAmount: transaction.totalAmount,
+      additionalDiscount,
+      totalAmount: calculatedTotal,
       paymentMethod: transaction.paymentMethod,
       paymentStatus: transaction.paymentStatus,
       notes: transaction.notes,
@@ -1023,7 +1046,7 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
       transaction.customerName,
       invoiceNumber,
       invoiceFilePath,
-      transaction.totalAmount,
+      calculatedTotal, // Use calculated total instead of stored value
       transaction.transactionDate,
       transaction.paymentStatus || 'pending'
     );
@@ -1031,7 +1054,7 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
     if (emailSent) {
       // Update transaction with email sent info (use findByIdAndUpdate to avoid full document validation)
       const emailSentAt = new Date();
-      await Transaction.findByIdAndUpdate(id, {
+      const emailUpdateData: Record<string, unknown> = {
         invoiceGenerated: true,
         invoiceNumber,
         invoicePath: relativeInvoicePath,
@@ -1039,7 +1062,13 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
         invoiceEmailSentAt: emailSentAt,
         invoiceEmailRecipient: transaction.customerEmail,
         lastModifiedBy: req.user?.id || 'system'
-      });
+      };
+      // Also correct totalAmount if it differs from calculated (fixes old transactions with incorrect totals)
+      if (transaction.totalAmount !== calculatedTotal) {
+        console.log('[Email] Correcting stored totalAmount from', transaction.totalAmount, 'to', calculatedTotal);
+        emailUpdateData.totalAmount = calculatedTotal;
+      }
+      await Transaction.findByIdAndUpdate(id, emailUpdateData);
 
       console.log('[Email] Invoice email sent successfully to:', transaction.customerEmail);
 

@@ -191,7 +191,7 @@ export const getTransactions = async (req: AuthenticatedRequest, res: Response):
         customerEmail?: { $regex: unknown; $options: string };
       }>;
       paymentStatus?: string;
-      status?: string;
+      status?: string | { $ne: string };
       transactionDate?: {
         $gte?: Date;
         $lte?: Date;
@@ -206,8 +206,14 @@ export const getTransactions = async (req: AuthenticatedRequest, res: Response):
     }
 
     // Transaction status filter
+    // By default, exclude cancelled transactions unless explicitly requested
+    const includeCancelled = req.query.includeCancelled === 'true';
+
     if (status && typeof status === 'string') {
       filter.status = status;
+    } else if (!includeCancelled) {
+      // Exclude cancelled transactions by default
+      filter.status = { $ne: 'cancelled' };
     }
 
     // Date range filter

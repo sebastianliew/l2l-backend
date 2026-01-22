@@ -11,6 +11,7 @@ import { PermissionService } from '../lib/permissions/PermissionService.js';
 import type { FeaturePermissions } from '../lib/permissions/types.js';
 import { createAuditLog } from '../models/AuditLog.js';
 import { transactionInventoryService } from '../services/TransactionInventoryService.js';
+import { normalizeTransactionForPayment } from '../utils/transactionUtils.js';
 
 const permissionService = PermissionService.getInstance();
 
@@ -406,15 +407,20 @@ export const createTransaction = async (req: AuthenticatedRequest, res: Response
     try {
       session.startTransaction();
 
-      // Set type to COMPLETED for non-draft transactions
+      // Set initial type to COMPLETED for non-draft transactions, otherwise DRAFT
       const transactionType = transactionData.status !== 'draft' ? 'COMPLETED' : 'DRAFT';
 
-      const transaction = new Transaction({
+      // Prepare transaction data
+      // Note: normalization for paid transactions is handled by pre-save middleware
+      const transactionFields = {
         ...transactionData,
         type: transactionType,
+        status: transactionData.status,
         createdBy: req.user?.id || 'system',
         invoiceStatus: 'pending'
-      });
+      };
+
+      const transaction = new Transaction(transactionFields);
 
       savedTransaction = await transaction.save({ session });
       transactionId = savedTransaction._id;
@@ -561,13 +567,30 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
 
     // Check if this is a draft being converted to a completed transaction
     const wasDraft = existingTransaction.status === 'draft' || wasCancelled;
-    const isBeingCompleted = updateData.status && updateData.status !== 'draft';
+    const isBeingCompleted = (updateData.status && updateData.status !== 'draft') ||
+                              updateData.paymentStatus === 'paid';
     const needsInventoryDeduction = wasDraft && isBeingCompleted;
     const needsInvoice = needsInventoryDeduction && !existingTransaction.invoiceGenerated;
 
     // When a draft is being completed, update type to COMPLETED
     if (wasDraft && isBeingCompleted) {
       updateData.type = 'COMPLETED';
+      // -----------------------------------------------------------------------
+      // TRANSACTION NORMALIZATION - Explicit Controller Call
+      // -----------------------------------------------------------------------
+      // This call is REQUIRED because findByIdAndUpdate() (used below) does NOT
+      // trigger Mongoose pre-save middleware. The pre-save hook in Transaction.ts
+      // handles .save() calls, but updates via findByIdAndUpdate bypass it.
+      //
+      // Why call here instead of using pre-findOneAndUpdate middleware?
+      // - We have full context: existing transaction state + update payload
+      // - Can make informed decisions (e.g., "was this actually a draft?")
+      // - pre-findOneAndUpdate lacks access to existing document values
+      //
+      // This ensures: if paymentStatus === 'paid', type/status become COMPLETED
+      // See: transactionUtils.ts for business rule documentation
+      // -----------------------------------------------------------------------
+      normalizeTransactionForPayment(updateData);
     }
 
     // Check if this is a completed transaction being cancelled (needs inventory reversal)

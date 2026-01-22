@@ -11,7 +11,7 @@ import { PermissionService } from '../lib/permissions/PermissionService.js';
 import type { FeaturePermissions } from '../lib/permissions/types.js';
 import { createAuditLog } from '../models/AuditLog.js';
 import { transactionInventoryService } from '../services/TransactionInventoryService.js';
-import { normalizeTransactionForPayment } from '../utils/transactionUtils.js';
+import { normalizeTransactionForPayment, formatInvoiceFilename } from '../utils/transactionUtils.js';
 
 const permissionService = PermissionService.getInstance();
 
@@ -93,7 +93,7 @@ async function generateInvoiceAsync(
     };
 
     // Generate PDF
-    const invoiceFileName = `${invoiceNumber}-LeafToLife.pdf`;
+    const invoiceFileName = formatInvoiceFilename(savedTransaction.transactionNumber, savedTransaction.customerName, savedTransaction.transactionDate);
     const invoiceFilePath = path.join(invoicesDir, invoiceFileName);
     const relativeInvoicePath = `invoices/${invoiceFileName}`;
 
@@ -750,7 +750,7 @@ export const updateTransaction = async (req: AuthenticatedRequest, res: Response
         };
 
         // Generate PDF
-        const invoiceFileName = `${invoiceNumber}-LeafToLife.pdf`;
+        const invoiceFileName = formatInvoiceFilename(updatedTransaction.transactionNumber, updatedTransaction.customerName, updatedTransaction.transactionDate);
         const invoiceFilePath = path.join(invoicesDir, invoiceFileName);
         const relativeInvoicePath = `invoices/${invoiceFileName}`;
 
@@ -912,8 +912,8 @@ export const generateTransactionInvoice = async (req: AuthenticatedRequest, res:
       status: transaction.paymentStatus
     };
 
-    // Generate PDF with proper filename format: TXN-XX_XX_XXXX-XXXX-LeafToLife.pdf
-    const invoiceFileName = `${invoiceNumber}-LeafToLife.pdf`;
+    // Generate PDF with proper filename format: TXN_CustomerName_DDMMYYYY.pdf
+    const invoiceFileName = formatInvoiceFilename(transaction.transactionNumber, transaction.customerName, transaction.transactionDate);
     const invoiceFilePath = path.join(invoicesDir, invoiceFileName);
     const relativeInvoicePath = `invoices/${invoiceFileName}`;
 
@@ -1096,7 +1096,7 @@ export const sendInvoiceEmail = async (req: AuthenticatedRequest, res: Response)
     };
 
     // Generate PDF
-    const invoiceFileName = `${invoiceNumber}-LeafToLife.pdf`;
+    const invoiceFileName = formatInvoiceFilename(transaction.transactionNumber, transaction.customerName, transaction.transactionDate);
     const invoiceFilePath = path.join(invoicesDir, invoiceFileName);
     const relativeInvoicePath = `invoices/${invoiceFileName}`;
 

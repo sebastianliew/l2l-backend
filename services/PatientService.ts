@@ -76,6 +76,10 @@ export class PatientService {
   // Get patient by ID
   async getPatientById(id: string) {
     try {
+      // Validate ID before querying to prevent Mongoose CastError
+      if (!id || id === 'undefined' || id === 'null') {
+        throw new Error('Patient not found');
+      }
       const patient = await Patient.findById(id).lean();
       
       if (!patient) {
@@ -92,9 +96,13 @@ export class PatientService {
   // Create new patient
   async createPatient(patientData: PatientFormData) {
     try {
+      // Strip _id and id from input data to prevent MongoDB casting errors
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { _id: _unusedId, id: _unusedIdAlias, ...cleanPatientData } = patientData as PatientFormData & { _id?: string; id?: string };
+
       // Normalize email and NRIC
-      const normalizedEmail = patientData.email?.trim().toLowerCase();
-      const normalizedNric = patientData.nric?.trim().toUpperCase();
+      const normalizedEmail = cleanPatientData.email?.trim().toLowerCase();
+      const normalizedNric = cleanPatientData.nric?.trim().toUpperCase();
 
       // Treat empty strings as "no value"
       const hasEmail = normalizedEmail && normalizedEmail.length > 0;
@@ -123,13 +131,13 @@ export class PatientService {
 
       // Normalize the data being saved for consistency
       if (hasEmail) {
-        patientData.email = normalizedEmail;
+        cleanPatientData.email = normalizedEmail;
       }
       if (hasNric) {
-        patientData.nric = normalizedNric;
+        cleanPatientData.nric = normalizedNric;
       }
 
-      const patient = new Patient(patientData);
+      const patient = new Patient(cleanPatientData);
       const savedPatient = await patient.save();
 
       return savedPatient.toJSON();
@@ -142,6 +150,10 @@ export class PatientService {
   // Update patient
   async updatePatient(id: string, updateData: Partial<PatientFormData>) {
     try {
+      // Validate ID before querying to prevent Mongoose CastError
+      if (!id || id === 'undefined' || id === 'null') {
+        throw new Error('Patient not found');
+      }
       // First, get the current patient to compare values
       const currentPatient = await Patient.findById(id).lean() as PatientType | null;
       if (!currentPatient) {
@@ -214,6 +226,10 @@ export class PatientService {
   // Delete patient
   async deletePatient(id: string) {
     try {
+      // Validate ID before querying to prevent Mongoose CastError
+      if (!id || id === 'undefined' || id === 'null') {
+        throw new Error('Patient not found');
+      }
       const patient = await Patient.findByIdAndDelete(id);
       
       if (!patient) {

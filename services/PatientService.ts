@@ -108,24 +108,11 @@ export class PatientService {
       const hasEmail = normalizedEmail && normalizedEmail.length > 0;
       const hasNric = normalizedNric && normalizedNric.length > 0;
 
-      // Build query conditions for case-insensitive email matching
-      const orConditions: Record<string, unknown>[] = [];
-      if (hasEmail) {
-        orConditions.push({ email: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
-      }
+      // Check for duplicate NRIC only (email duplicates are allowed)
       if (hasNric) {
-        orConditions.push({ nric: normalizedNric });
-      }
-
-      // Check for duplicate email or NRIC
-      if (orConditions.length > 0) {
-        const existingPatient = await Patient.findOne({ $or: orConditions });
-
+        const existingPatient = await Patient.findOne({ nric: normalizedNric });
         if (existingPatient) {
-          // Determine which field caused the duplicate
-          const existingEmail = (existingPatient.email as string | undefined)?.toLowerCase();
-          const duplicateField = hasEmail && existingEmail === normalizedEmail ? 'email' : 'NRIC';
-          throw new Error(`Patient with this ${duplicateField} already exists`);
+          throw new Error('Patient with this NRIC already exists');
         }
       }
 
@@ -163,38 +150,24 @@ export class PatientService {
       // Normalize email and NRIC for comparison
       const normalizedEmail = updateData.email?.trim().toLowerCase();
       const normalizedNric = updateData.nric?.trim().toUpperCase();
-      const currentEmail = currentPatient.email?.trim().toLowerCase();
       const currentNric = currentPatient.nric?.trim().toUpperCase();
 
       // Treat empty strings as "no value"
       const hasEmail = normalizedEmail && normalizedEmail.length > 0;
       const hasNric = normalizedNric && normalizedNric.length > 0;
 
-      // Only check for duplicates if the value is CHANGING to a new value
-      const emailIsChanging = hasEmail && normalizedEmail !== currentEmail;
+      // Only check for NRIC duplicates if the value is CHANGING to a new value
       const nricIsChanging = hasNric && normalizedNric !== currentNric;
 
-      // Check if trying to update email/NRIC to existing value (owned by another patient)
-      if (emailIsChanging || nricIsChanging) {
-        // Build query conditions for case-insensitive email matching
-        const orConditions: Record<string, unknown>[] = [];
-        if (emailIsChanging) {
-          orConditions.push({ email: { $regex: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
-        }
-        if (nricIsChanging) {
-          orConditions.push({ nric: normalizedNric });
-        }
-
+      // Check if trying to update NRIC to existing value (owned by another patient)
+      if (nricIsChanging) {
         const existingPatient = await Patient.findOne({
           _id: { $ne: id },
-          $or: orConditions
+          nric: normalizedNric
         });
 
         if (existingPatient) {
-          // Determine which field caused the duplicate
-          const existingEmail = (existingPatient.email as string | undefined)?.toLowerCase();
-          const duplicateField = emailIsChanging && existingEmail === normalizedEmail ? 'email' : 'NRIC';
-          throw new Error(`Patient with this ${duplicateField} already exists`);
+          throw new Error('Patient with this NRIC already exists');
         }
       }
 

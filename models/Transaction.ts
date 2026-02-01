@@ -88,6 +88,7 @@ export interface ITransaction extends Document {
   invoiceError?: string; // Error message if invoice generation failed
   invoicePath?: string;
   invoiceNumber?: string;
+  invoiceFilename?: string; // Virtual: extracted from invoicePath for frontend convenience
   invoiceEmailSent?: boolean;
   invoiceEmailSentAt?: Date;
   invoiceEmailRecipient?: string;
@@ -250,6 +251,18 @@ const TransactionSchema = new Schema<ITransaction>({
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
+});
+
+// Virtual field: invoiceFilename
+// Extracts the filename from invoicePath so frontend doesn't need to recompute it.
+// This eliminates the need for duplicate formatInvoiceFilename logic in the frontend
+// when downloading server-generated PDFs.
+TransactionSchema.virtual('invoiceFilename').get(function() {
+  if (!this.invoicePath) return undefined;
+  // invoicePath format: 'invoices/TXN-001_John_Smith_22012026.pdf'
+  // Extract just the filename portion
+  const parts = this.invoicePath.split('/');
+  return parts[parts.length - 1];
 });
 
 // Indexes for better performance

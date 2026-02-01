@@ -1296,3 +1296,131 @@ export const deleteDraft = async (req: AuthenticatedRequest, res: Response): Pro
     });
   }
 };
+
+// POST /api/transactions/:id/duplicate - Duplicate a transaction as a new draft
+export const duplicateTransaction = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'Invalid transaction ID' });
+      return;
+    }
+
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Fetch the original transaction
+    const original = await Transaction.findById(id);
+
+    if (!original) {
+      res.status(404).json({ error: 'Transaction not found' });
+      return;
+    }
+
+    // Deep clone items array, removing _id from each item
+    const clonedItems = original.items.map(item => {
+      // Use type assertion since Mongoose subdocuments have toObject method at runtime
+      const itemObj = typeof (item as unknown as { toObject?: () => Record<string, unknown> }).toObject === 'function'
+        ? (item as unknown as { toObject: () => Record<string, unknown> }).toObject()
+        : { ...item };
+      // Remove _id to let MongoDB generate new ones
+      delete itemObj._id;
+
+      // Deep clone customBlendData if present
+      if (itemObj.customBlendData) {
+        const blendData = itemObj.customBlendData as Record<string, unknown>;
+        itemObj.customBlendData = {
+          ...blendData,
+          ingredients: Array.isArray(blendData.ingredients)
+            ? blendData.ingredients.map((ing: Record<string, unknown>) => ({ ...ing }))
+            : []
+        };
+      }
+
+      return itemObj;
+    });
+
+    // Clone customer address if present
+    const clonedAddress = original.customerAddress ? {
+      street: original.customerAddress.street,
+      city: original.customerAddress.city,
+      state: original.customerAddress.state,
+      postalCode: original.customerAddress.postalCode
+    } : undefined;
+
+    // Create the duplicate transaction as a DRAFT
+    const duplicateData = {
+      // Clone customer info
+      customerId: original.customerId,
+      customerName: original.customerName,
+      customerEmail: original.customerEmail,
+      customerPhone: original.customerPhone,
+      customerAddress: clonedAddress,
+
+      // Clone items (deep copy)
+      items: clonedItems,
+
+      // Clone pricing
+      subtotal: original.subtotal,
+      discountAmount: original.discountAmount,
+      totalAmount: original.totalAmount,
+      currency: original.currency || 'SGD',
+
+      // Clone other fields
+      paymentMethod: original.paymentMethod,
+      notes: original.notes,
+      terms: original.terms,
+
+      // Reset to DRAFT - always create as draft regardless of source status
+      type: 'DRAFT' as const,
+      status: 'draft' as const,
+      paymentStatus: 'pending' as const,
+      paidAmount: 0,
+      changeAmount: 0,
+
+      // Set new transaction date
+      transactionDate: new Date(),
+
+      // Reset invoice fields
+      invoiceGenerated: false,
+      invoiceStatus: 'none' as const,
+      invoicePath: undefined,
+      invoiceNumber: undefined,
+      invoiceError: undefined,
+      invoiceEmailSent: false,
+      invoiceEmailSentAt: undefined,
+      invoiceEmailRecipient: undefined,
+
+      // Reset refund fields
+      refundStatus: 'none' as const,
+      totalRefunded: 0,
+      refundHistory: [],
+      refundCount: 0,
+      lastRefundDate: undefined,
+      refundableAmount: undefined,
+
+      // Set creator
+      createdBy: req.user.id,
+      lastModifiedBy: req.user.id,
+
+      // Do NOT set transactionNumber - let pre-save middleware generate it
+      // Do NOT set draftId - this is not a draft from autosave
+    };
+
+    const duplicate = new Transaction(duplicateData);
+    const savedDuplicate = await duplicate.save();
+
+    console.log('[Transaction] Duplicated transaction:', original.transactionNumber, '-> new draft:', savedDuplicate.transactionNumber);
+
+    res.status(201).json(savedDuplicate);
+  } catch (error) {
+    console.error('Error duplicating transaction:', error);
+    res.status(500).json({
+      error: 'Failed to duplicate transaction',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};

@@ -3,6 +3,7 @@ import { PipelineStage } from 'mongoose';
 import { ItemSalesData, ItemSalesResponse, ItemSalesFilters } from '../../types/reports/item-sales.types.js';
 import { Transaction } from '../../models/Transaction.js';
 import { Product } from '../../models/Product.js';
+import { Bundle } from '../../models/Bundle.js';
 
 export class ItemSalesController {
   static async getItemSalesReport(
@@ -183,6 +184,39 @@ export class ItemSalesController {
       productsByName.forEach(({ originalName, product }) => {
         costPriceMap.set(originalName, product.costPrice || 0);
       });
+
+      // ================================================================
+      // Bundle cost lookup: for IDs not found in Product collection,
+      // check Bundle collection and calculate cost from bundle products
+      // ================================================================
+      const unmatchedObjectIds = validObjectIds.filter(id => !costPriceMap.has(id));
+      if (unmatchedObjectIds.length > 0) {
+        const bundles = await Bundle.find(
+          { _id: { $in: unmatchedObjectIds } }
+        ).select('_id bundleProducts bundlePrice').lean();
+
+        for (const bundle of bundles) {
+          // Calculate bundle cost from its component products
+          let bundleCost = 0;
+          if (bundle.bundleProducts && Array.isArray(bundle.bundleProducts)) {
+            for (const bp of bundle.bundleProducts) {
+              const bpId = String(bp.productId || '');
+              // Try from existing cost map first, then from products fetched by ID
+              let componentCost = costPriceMap.get(bpId);
+              if (componentCost === undefined) {
+                const prod = await Product.findOne(
+                  { _id: bpId },
+                  { costPrice: 1 }
+                ).lean();
+                componentCost = (prod as { costPrice?: number } | null)?.costPrice || 0;
+              }
+              bundleCost += componentCost * (bp.quantity || 1);
+            }
+          }
+          // Store the per-unit cost (bundle is sold as 1 unit)
+          costPriceMap.set(String(bundle._id), bundleCost);
+        }
+      }
 
       // Calculate final results with actual cost data
       const results: ItemSalesData[] = salesResults.map((item, index) => {

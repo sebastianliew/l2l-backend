@@ -229,11 +229,25 @@ export class ItemSalesController {
       // Filter out non-product entries (invoices, misc items, shipping, credits, etc.)
       const excludePatterns = [
         /^Invoice\s+dated/i,           // "Invoice dated 29/08/2025, posted 05/10/2025"
-        /^Unknown\s+Item$/i,           // "Unknown Item"
-        /^Shipping\s+(Fees?|Cost)/i,   // "Shipping Fees", "Shipping Cost"
-        /^Credit[:]/i,                 // "Credit: test"
+        /^Unknown\s+(Item|Product)$/i, // "Unknown Item", "Unknown Product"
+        /^Shipping/i,                  // "Shipping", "Shipping Fees", "Shipping Cost", "Shipping Ninjavan"
+        /^Shipment$/i,                 // "Shipment"
+        /^Delivery$/i,                 // "Delivery"
+        /^Postage/i,                   // "Postage"
+        /^Credit/i,                    // "Credit: test", "Credit Card Fees"
         /^Pay\s*Now\s+fees?/i,         // "Pay Now fees"
         /^Misc(ellaneous)?[:]/i,       // "Misc:" entries
+        /^CONSULTATION/i,              // "CONSULTATION 80", "CONSULTATION 180", etc.
+        /^Consultation\s+Fee/i,        // "Consultation Fee"
+        /EPIMAPPING/i,                 // "EPIMAPPING", "EPIMAPPINGFeb28"
+        /^EPI-?MAP/i,                  // "EPI-MAP Mum day"
+        /^Complete\s+microbiome/i,     // "Complete microbiome map"
+        /^(Advanced|Essential)\s+(hormone|mineral)/i, // Lab tests
+        /^Estrogen\s+elite/i,          // "Estrogen elite dried urine"
+        /Retreat/i,                    // "Retreat2025earlybirdendmarch", "Retreat Nov 25 - 29"
+        /^No\s+show\s+charge/i,        // "No show charge"
+        /^Rental/i,                    // "rental dec 25", "Oct 25 Rental"
+        /^Offset/i,                    // "offset" entries
       ];
 
       let filteredResults = results.filter(item => {

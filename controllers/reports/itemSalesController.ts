@@ -248,6 +248,12 @@ export class ItemSalesController {
         /^No\s+show\s+charge/i,        // "No show charge"
         /^Rental/i,                    // "rental dec 25", "Oct 25 Rental"
         /^Offset/i,                    // "offset" entries
+        /^test\b/i,                    // "test", "test blend", "test bottle"
+        /^aaa\b/i,                     // "aaa product test miko...", "aaaa CSA test produt 1"
+        /^asd$/i,                      // "asd"
+        /^xxx/i,                       // test entries
+        /\btest\s+prod/i,             // "test product", "test produt"
+        /^CR\d+\s+test/i,             // "CR08 test"
       ];
 
       let filteredResults = results.filter(item => {

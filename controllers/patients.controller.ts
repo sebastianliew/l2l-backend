@@ -93,6 +93,17 @@ export class PatientsController {
     }
   }
 
+  // Get patient summary (lightweight — for transaction selectors)
+  async getPatientSummary(req: Request, res: Response): Promise<void> {
+    try {
+      const patient = await patientService.getPatientSummary(req.params.id);
+      res.json(patient);
+    } catch (error) {
+      const status = errorStatus(error);
+      res.status(status).json({ error: errorMessage(error, 'Failed to fetch patient') });
+    }
+  }
+
   // Get recent patients
   async getRecentPatients(req: Request, res: Response) {
     try {

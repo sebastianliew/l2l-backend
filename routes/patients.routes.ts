@@ -22,7 +22,10 @@ router.get('/', requirePermission('patients', 'canAccessAllPatients'), patientsC
 // POST /api/patients/bulk-delete - Bulk delete patients (rate limited)
 router.post('/bulk-delete', bulkOperationRateLimit, requirePermission('patients', 'canDeletePatients'), patientsController.bulkDeletePatients.bind(patientsController));
 
-// GET /api/patients/:id - Get patient by ID
+// GET /api/patients/:id/summary - Lightweight patient data for selectors
+router.get('/:id/summary', requirePermission('patients', 'canAccessAllPatients'), patientsController.getPatientSummary.bind(patientsController));
+
+// GET /api/patients/:id - Get patient by ID (full document)
 router.get('/:id', requirePermission('patients', 'canAccessAllPatients'), patientsController.getPatientById.bind(patientsController));
 
 // POST /api/patients - Create new patient

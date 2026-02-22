@@ -1,32 +1,19 @@
-import mongoose from 'mongoose';
 import { Patient } from '../models/Patient.js';
 import type { PatientFormData, Patient as PatientType } from '../types/patient.js';
+import {
+  requireObjectId,
+  safeSearchRegex,
+  blankToNull,
+  clampLimit,
+  pickFields,
+  toDotNotation,
+  isPastOrToday
+} from '../lib/validations/sanitize.js';
 
-/** Flatten specified nested keys to dot notation for safe MongoDB $set updates. */
-function toDotNotation(
-  data: Record<string, unknown>,
-  nestedKeys: string[]
-): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (nestedKeys.includes(key) && value && typeof value === 'object' && !Array.isArray(value)) {
-      for (const [nested, nestedVal] of Object.entries(value as Record<string, unknown>)) {
-        result[`${key}.${nested}`] = nestedVal;
-      }
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-/** Validate that a string is a valid MongoDB ObjectId. */
-function isValidObjectId(id: string): boolean {
-  return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
-}
-
-/** Fields allowed in create/update operations (whitelist). */
-const ALLOWED_PATIENT_FIELDS = new Set([
+/** Fields that may be written via create / update (mass-assignment protection). */
+const ALLOWED_FIELDS = new Set([
   'firstName', 'middleName', 'lastName', 'nric', 'dateOfBirth', 'gender',
   'bloodType', 'maritalStatus', 'occupation',
   'email', 'phone', 'altPhone', 'fax', 'address', 'city', 'state', 'postalCode', 'country',
@@ -36,263 +23,193 @@ const ALLOWED_PATIENT_FIELDS = new Set([
   'salutation', 'company'
 ]);
 
-/** Strip disallowed keys from input data (mass-assignment protection). */
-function pickAllowedFields(data: Record<string, unknown>): Record<string, unknown> {
-  const clean: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (ALLOWED_PATIENT_FIELDS.has(key)) {
-      clean[key] = value;
+/** Nested subdocuments that use dot-notation for partial $set updates. */
+const NESTED_KEYS = ['memberBenefits', 'marketingPreferences', 'financialSummary', 'enrichmentInfo'] as const;
+
+/** Only these fields may appear in the `sortBy` query param. */
+const SORTABLE_FIELDS = new Set(['createdAt', 'updatedAt', 'firstName', 'lastName', 'email', 'status']);
+
+/** Select projection for list / selector views (omit heavy medical data). */
+const LIST_PROJECTION = '-medicalHistory -enhancedMedicalData -consentHistory -migrationInfo';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function sanitizePatientInput(data: Record<string, unknown>): Record<string, unknown> {
+  const clean = pickFields(data, ALLOWED_FIELDS) as Record<string, unknown>;
+
+  // Normalise email
+  if (typeof clean.email === 'string') {
+    clean.email = clean.email.trim().toLowerCase() || undefined;
+  }
+
+  // Normalise NRIC: blank → null (sparse unique index)
+  if ('nric' in clean) {
+    const nric = blankToNull(clean.nric as string);
+    clean.nric = nric ? nric.toUpperCase() : null;
+  }
+
+  // Validate date of birth is not in the future
+  if (clean.dateOfBirth) {
+    const dob = new Date(clean.dateOfBirth as string);
+    if (isNaN(dob.getTime()) || !isPastOrToday(dob)) {
+      throw Object.assign(new Error('Date of birth cannot be in the future'), { statusCode: 400 });
     }
   }
+
   return clean;
 }
 
+async function assertNricUnique(nric: string | null, excludeId?: string): Promise<void> {
+  if (!nric) return;
+  const query: Record<string, unknown> = { nric };
+  if (excludeId) query._id = { $ne: excludeId };
+  const existing = await Patient.findOne(query).select('_id').lean();
+  if (existing) {
+    throw Object.assign(new Error('Patient with this NRIC already exists'), { statusCode: 409 });
+  }
+}
+
+// ─── Service ─────────────────────────────────────────────────────────────────
+
 export class PatientService {
-  // Get all patients with search, filters, and pagination
+
+  /** List patients with search, filters, and pagination. */
   async getAllPatients(
     searchTerm?: string,
-    page: number = 1,
-    limit: number = 25,
-    sortBy: string = 'createdAt',
+    page = 1,
+    limit = 25,
+    sortBy = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc',
     statusFilter?: string,
     tierFilter?: string
   ) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const conditions: Record<string, any>[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conditions: Record<string, any>[] = [];
 
-      // Search filter
-      if (searchTerm && searchTerm.trim().length >= 2) {
-        const searchRegex = new RegExp(searchTerm.trim(), 'i');
-        conditions.push({
-          $or: [
-            { firstName: searchRegex },
-            { lastName: searchRegex },
-            { email: searchRegex },
-            { phone: searchRegex },
-            { nric: searchRegex },
-            { legacyCustomerNo: searchRegex }
-          ]
-        });
-      }
-
-      // Status filter
-      if (statusFilter && statusFilter !== 'all') {
-        conditions.push({ status: statusFilter });
-      }
-
-      // Membership tier filter
-      if (tierFilter && tierFilter !== 'all') {
-        conditions.push({ 'memberBenefits.membershipTier': tierFilter });
-      }
-
-      const query = conditions.length > 0 ? { $and: conditions } : {};
-
-      // Whitelist sortable fields to prevent injection
-      const allowedSortFields = ['createdAt', 'updatedAt', 'firstName', 'lastName', 'email', 'status'];
-      const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
-
-      const sortOptions: Record<string, 1 | -1> = {};
-      sortOptions[safeSortBy] = sortOrder === 'asc' ? 1 : -1;
-
-      const skip = (page - 1) * limit;
-      const totalCount = await Patient.countDocuments(query);
-
-      const patients = await Patient.find(query)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limit)
-        .lean();
-
-      const totalPages = Math.ceil(totalCount / limit);
-
-      return {
-        patients,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalCount,
-          limit,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-          nextPage: page < totalPages ? page + 1 : null,
-          prevPage: page > 1 ? page - 1 : null
-        }
-      };
-    } catch (error) {
-      console.error('Error in PatientService.getAllPatients:', error);
-      throw new Error('Failed to fetch patients');
+    if (searchTerm && searchTerm.trim().length >= 2) {
+      const regex = safeSearchRegex(searchTerm);
+      conditions.push({
+        $or: [
+          { firstName: regex }, { lastName: regex }, { email: regex },
+          { phone: regex }, { nric: regex }, { legacyCustomerNo: regex }
+        ]
+      });
     }
+
+    if (statusFilter && statusFilter !== 'all') conditions.push({ status: statusFilter });
+    if (tierFilter && tierFilter !== 'all') conditions.push({ 'memberBenefits.membershipTier': tierFilter });
+
+    const query = conditions.length > 0 ? { $and: conditions } : {};
+    const safeSortBy = SORTABLE_FIELDS.has(sortBy) ? sortBy : 'createdAt';
+    const safeLimit = clampLimit(limit);
+    const skip = (page - 1) * safeLimit;
+
+    const [totalCount, patients] = await Promise.all([
+      Patient.countDocuments(query),
+      Patient.find(query)
+        .select(LIST_PROJECTION)
+        .sort({ [safeSortBy]: sortOrder === 'asc' ? 1 : -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean()
+    ]);
+
+    const totalPages = Math.ceil(totalCount / safeLimit);
+    return {
+      patients,
+      pagination: {
+        currentPage: page, totalPages, totalCount, limit: safeLimit,
+        hasNextPage: page < totalPages, hasPrevPage: page > 1,
+        nextPage: page < totalPages ? page + 1 : null,
+        prevPage: page > 1 ? page - 1 : null
+      }
+    };
   }
 
-  // Get patient by ID
+  /** Get full patient document by ID (including medical data). */
   async getPatientById(id: string) {
-    if (!isValidObjectId(id)) {
-      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
-    }
-
+    requireObjectId(id, 'patient ID');
     const patient = await Patient.findById(id).lean();
-    if (!patient) {
-      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
-    }
+    if (!patient) throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
     return patient;
   }
 
-  // Create new patient
+  /** Lightweight fetch for selectors — only fields needed for transactions. */
+  async getPatientSummary(id: string) {
+    requireObjectId(id, 'patient ID');
+    const patient = await Patient.findById(id)
+      .select('firstName lastName email phone status memberBenefits legacyCustomerNo')
+      .lean();
+    if (!patient) throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
+    return patient;
+  }
+
+  /** Create new patient. */
   async createPatient(patientData: PatientFormData) {
-    // Whitelist allowed fields
-    const cleanData = pickAllowedFields(patientData as unknown as Record<string, unknown>) as Partial<PatientFormData>;
+    const clean = sanitizePatientInput(patientData as unknown as Record<string, unknown>);
+    await assertNricUnique(clean.nric as string | null);
 
-    // Normalize email and NRIC
-    const normalizedEmail = cleanData.email?.trim().toLowerCase();
-    const normalizedNric = cleanData.nric?.trim().toUpperCase();
-    const hasNric = normalizedNric && normalizedNric.length > 0;
-
-    // Check for duplicate NRIC only (email duplicates are allowed)
-    if (hasNric) {
-      const existing = await Patient.findOne({ nric: normalizedNric });
-      if (existing) {
-        throw new Error('Patient with this NRIC already exists');
-      }
-    }
-
-    if (normalizedEmail) cleanData.email = normalizedEmail;
-    if (hasNric) cleanData.nric = normalizedNric;
-
-    const patient = new Patient(cleanData);
+    const patient = new Patient(clean);
     const saved = await patient.save();
     return saved.toJSON();
   }
 
-  // Update patient
+  /** Partial update of patient. Nested objects use dot notation. */
   async updatePatient(id: string, updateData: Partial<PatientFormData>) {
-    if (!isValidObjectId(id)) {
-      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
-    }
+    requireObjectId(id, 'patient ID');
+    const clean = sanitizePatientInput(updateData as unknown as Record<string, unknown>);
 
-    // Whitelist allowed fields
-    const cleanData = pickAllowedFields(updateData as unknown as Record<string, unknown>);
-
-    const currentPatient = await Patient.findById(id).lean() as PatientType | null;
-    if (!currentPatient) {
-      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
-    }
-
-    // Normalize email and NRIC
-    const normalizedEmail = (cleanData.email as string)?.trim().toLowerCase();
-    const normalizedNric = (cleanData.nric as string)?.trim().toUpperCase();
-    const currentNric = currentPatient.nric?.trim().toUpperCase();
-    const hasNric = normalizedNric && normalizedNric.length > 0;
-    const nricIsChanging = hasNric && normalizedNric !== currentNric;
-
-    if (nricIsChanging) {
-      const existing = await Patient.findOne({ _id: { $ne: id }, nric: normalizedNric });
-      if (existing) {
-        throw new Error('Patient with this NRIC already exists');
+    // NRIC uniqueness only if value is actually changing
+    if (clean.nric !== undefined) {
+      const current = await Patient.findById(id).select('nric').lean() as PatientType | null;
+      if (!current) throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
+      const currentNric = current.nric?.trim().toUpperCase() || null;
+      if (clean.nric !== currentNric) {
+        await assertNricUnique(clean.nric as string | null, id);
       }
     }
 
-    if (normalizedEmail && cleanData.email) cleanData.email = normalizedEmail;
-    if (hasNric && cleanData.nric) cleanData.nric = normalizedNric;
-
-    // Convert nested objects to dot notation so partial updates don't replace entire subdocuments
-    const flattenedUpdate = toDotNotation(cleanData, [
-      'memberBenefits', 'marketingPreferences', 'financialSummary', 'enrichmentInfo'
-    ]);
-
-    const patient = await Patient.findByIdAndUpdate(
-      id,
-      { $set: flattenedUpdate },
-      { new: true, runValidators: false }
-    ).lean();
-
-    if (!patient) {
-      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
-    }
-
+    const flatUpdate = toDotNotation(clean, [...NESTED_KEYS]);
+    const patient = await Patient.findByIdAndUpdate(id, { $set: flatUpdate }, { new: true, runValidators: false }).lean();
+    if (!patient) throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
     return patient;
   }
 
-  // Delete patient (soft-delete by setting status to 'inactive', preserving transaction references)
+  /** Soft-delete (deactivate). Preserves transaction references. */
   async deletePatient(id: string) {
-    if (!isValidObjectId(id)) {
-      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
-    }
-
+    requireObjectId(id, 'patient ID');
     const patient = await Patient.findById(id);
-    if (!patient) {
-      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
-    }
-
-    // Soft delete — set inactive instead of removing, so transactions aren't orphaned
+    if (!patient) throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
     patient.status = 'inactive';
     await patient.save();
-
     return { message: 'Patient deactivated successfully' };
   }
 
-  // Permanently delete patient (for bulk operations or explicit permanent removal)
-  async permanentlyDeletePatient(id: string) {
-    if (!isValidObjectId(id)) {
-      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
-    }
-
-    const patient = await Patient.findByIdAndDelete(id);
-    if (!patient) {
-      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
-    }
-    return { message: 'Patient deleted permanently' };
-  }
-
-  // Get recent patients
-  async getRecentPatients(limit: number = 10) {
-    return Patient.find()
-      .sort({ updatedAt: -1 })
-      .limit(limit)
-      .lean();
-  }
-
-  // Bulk delete patients
+  /** Bulk soft-delete. */
   async bulkDeletePatients(patientIds: string[]) {
     if (!Array.isArray(patientIds) || patientIds.length === 0) {
-      throw new Error('Patient IDs array is required');
+      throw Object.assign(new Error('Patient IDs array is required'), { statusCode: 400 });
     }
+    patientIds.forEach(id => requireObjectId(id, 'patient ID'));
 
-    // Validate all IDs
-    const invalidIds = patientIds.filter(id => !isValidObjectId(id));
-    if (invalidIds.length > 0) {
-      throw Object.assign(
-        new Error(`Invalid patient ID(s): ${invalidIds.join(', ')}`),
-        { statusCode: 400 }
-      );
-    }
-
-    // Soft delete — set inactive instead of hard delete
-    const result = await Patient.updateMany(
-      { _id: { $in: patientIds } },
-      { $set: { status: 'inactive' } }
-    );
-
-    return {
-      message: `${result.modifiedCount} patients deactivated successfully`,
-      deletedCount: result.modifiedCount
-    };
+    const result = await Patient.updateMany({ _id: { $in: patientIds } }, { $set: { status: 'inactive' } });
+    return { message: `${result.modifiedCount} patients deactivated successfully`, deletedCount: result.modifiedCount };
   }
 
-  // Get patient statistics
-  async getPatientStats() {
-    const [totalPatients, activePatients, inactivePatients, withConsent, recentRegistrations] =
-      await Promise.all([
-        Patient.countDocuments(),
-        Patient.countDocuments({ status: 'active' }),
-        Patient.countDocuments({ status: 'inactive' }),
-        Patient.countDocuments({ hasConsent: true }),
-        Patient.countDocuments({
-          createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
-        })
-      ]);
+  /** Recent patients (lightweight). */
+  async getRecentPatients(limit = 10) {
+    return Patient.find().select(LIST_PROJECTION).sort({ updatedAt: -1 }).limit(clampLimit(limit)).lean();
+  }
 
+  /** Aggregate stats for dashboard. */
+  async getPatientStats() {
+    const [totalPatients, activePatients, inactivePatients, withConsent, recentRegistrations] = await Promise.all([
+      Patient.countDocuments(),
+      Patient.countDocuments({ status: 'active' }),
+      Patient.countDocuments({ status: 'inactive' }),
+      Patient.countDocuments({ hasConsent: true }),
+      Patient.countDocuments({ createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } })
+    ]);
     return { totalPatients, activePatients, inactivePatients, withConsent, recentRegistrations };
   }
 }

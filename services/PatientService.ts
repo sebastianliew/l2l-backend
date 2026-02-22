@@ -1,27 +1,71 @@
+import mongoose from 'mongoose';
 import { Patient } from '../models/Patient.js';
 import type { PatientFormData, Patient as PatientType } from '../types/patient.js';
 
-export class PatientService {
-  // Get all patients with search and pagination
-  async getAllPatients(searchTerm?: string, page: number = 1, limit: number = 25, sortBy: string = 'createdAt', sortOrder: 'asc' | 'desc' = 'desc') {
-    try {
-      interface PatientQuery {
-        $or?: Array<{
-          firstName?: RegExp;
-          lastName?: RegExp;
-          email?: RegExp;
-          phone?: RegExp;
-          nric?: RegExp;
-          legacyCustomerNo?: RegExp;
-        }>;
+/** Flatten specified nested keys to dot notation for safe MongoDB $set updates. */
+function toDotNotation(
+  data: Record<string, unknown>,
+  nestedKeys: string[]
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (nestedKeys.includes(key) && value && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [nested, nestedVal] of Object.entries(value as Record<string, unknown>)) {
+        result[`${key}.${nested}`] = nestedVal;
       }
-      
-      let query: PatientQuery = {};
-      
-      // Add search functionality
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/** Validate that a string is a valid MongoDB ObjectId. */
+function isValidObjectId(id: string): boolean {
+  return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
+}
+
+/** Fields allowed in create/update operations (whitelist). */
+const ALLOWED_PATIENT_FIELDS = new Set([
+  'firstName', 'middleName', 'lastName', 'nric', 'dateOfBirth', 'gender',
+  'bloodType', 'maritalStatus', 'occupation',
+  'email', 'phone', 'altPhone', 'fax', 'address', 'city', 'state', 'postalCode', 'country',
+  'status', 'hasConsent',
+  'medicalHistory', 'consentHistory',
+  'memberBenefits', 'marketingPreferences', 'enhancedMedicalData',
+  'salutation', 'company'
+]);
+
+/** Strip disallowed keys from input data (mass-assignment protection). */
+function pickAllowedFields(data: Record<string, unknown>): Record<string, unknown> {
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (ALLOWED_PATIENT_FIELDS.has(key)) {
+      clean[key] = value;
+    }
+  }
+  return clean;
+}
+
+export class PatientService {
+  // Get all patients with search, filters, and pagination
+  async getAllPatients(
+    searchTerm?: string,
+    page: number = 1,
+    limit: number = 25,
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc',
+    statusFilter?: string,
+    tierFilter?: string
+  ) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const conditions: Record<string, any>[] = [];
+
+      // Search filter
       if (searchTerm && searchTerm.trim().length >= 2) {
         const searchRegex = new RegExp(searchTerm.trim(), 'i');
-        query = {
+        conditions.push({
           $or: [
             { firstName: searchRegex },
             { lastName: searchRegex },
@@ -30,30 +74,39 @@ export class PatientService {
             { nric: searchRegex },
             { legacyCustomerNo: searchRegex }
           ]
-        };
+        });
       }
-      
+
+      // Status filter
+      if (statusFilter && statusFilter !== 'all') {
+        conditions.push({ status: statusFilter });
+      }
+
+      // Membership tier filter
+      if (tierFilter && tierFilter !== 'all') {
+        conditions.push({ 'memberBenefits.membershipTier': tierFilter });
+      }
+
+      const query = conditions.length > 0 ? { $and: conditions } : {};
+
+      // Whitelist sortable fields to prevent injection
+      const allowedSortFields = ['createdAt', 'updatedAt', 'firstName', 'lastName', 'email', 'status'];
+      const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+
       const sortOptions: Record<string, 1 | -1> = {};
-      sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
-      
-      // Calculate skip for pagination
+      sortOptions[safeSortBy] = sortOrder === 'asc' ? 1 : -1;
+
       const skip = (page - 1) * limit;
-      
-      // Get total count for pagination info
       const totalCount = await Patient.countDocuments(query);
-      
-      // Get patients with pagination
+
       const patients = await Patient.find(query)
         .sort(sortOptions)
         .skip(skip)
         .limit(limit)
         .lean();
-      
-      // Calculate pagination metadata
+
       const totalPages = Math.ceil(totalCount / limit);
-      const hasNextPage = page < totalPages;
-      const hasPrevPage = page > 1;
-      
+
       return {
         patients,
         pagination: {
@@ -61,10 +114,10 @@ export class PatientService {
           totalPages,
           totalCount,
           limit,
-          hasNextPage,
-          hasPrevPage,
-          nextPage: hasNextPage ? page + 1 : null,
-          prevPage: hasPrevPage ? page - 1 : null
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+          nextPage: page < totalPages ? page + 1 : null,
+          prevPage: page > 1 ? page - 1 : null
         }
       };
     } catch (error) {
@@ -75,237 +128,171 @@ export class PatientService {
 
   // Get patient by ID
   async getPatientById(id: string) {
-    try {
-      // Validate ID before querying to prevent Mongoose CastError
-      if (!id || id === 'undefined' || id === 'null') {
-        throw new Error('Patient not found');
-      }
-      const patient = await Patient.findById(id).lean();
-      
-      if (!patient) {
-        throw new Error('Patient not found');
-      }
-      
-      return patient;
-    } catch (error) {
-      console.error('Error in PatientService.getPatientById:', error);
-      throw error;
+    if (!isValidObjectId(id)) {
+      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
     }
+
+    const patient = await Patient.findById(id).lean();
+    if (!patient) {
+      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
+    }
+    return patient;
   }
 
   // Create new patient
   async createPatient(patientData: PatientFormData) {
-    try {
-      // Strip _id and id from input data to prevent MongoDB casting errors
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { _id: _unusedId, id: _unusedIdAlias, ...cleanPatientData } = patientData as PatientFormData & { _id?: string; id?: string };
+    // Whitelist allowed fields
+    const cleanData = pickAllowedFields(patientData as unknown as Record<string, unknown>) as Partial<PatientFormData>;
 
-      // Normalize email and NRIC
-      const normalizedEmail = cleanPatientData.email?.trim().toLowerCase();
-      const normalizedNric = cleanPatientData.nric?.trim().toUpperCase();
+    // Normalize email and NRIC
+    const normalizedEmail = cleanData.email?.trim().toLowerCase();
+    const normalizedNric = cleanData.nric?.trim().toUpperCase();
+    const hasNric = normalizedNric && normalizedNric.length > 0;
 
-      // Treat empty strings as "no value"
-      const hasEmail = normalizedEmail && normalizedEmail.length > 0;
-      const hasNric = normalizedNric && normalizedNric.length > 0;
-
-      // Check for duplicate NRIC only (email duplicates are allowed)
-      if (hasNric) {
-        const existingPatient = await Patient.findOne({ nric: normalizedNric });
-        if (existingPatient) {
-          throw new Error('Patient with this NRIC already exists');
-        }
+    // Check for duplicate NRIC only (email duplicates are allowed)
+    if (hasNric) {
+      const existing = await Patient.findOne({ nric: normalizedNric });
+      if (existing) {
+        throw new Error('Patient with this NRIC already exists');
       }
-
-      // Normalize the data being saved for consistency
-      if (hasEmail) {
-        cleanPatientData.email = normalizedEmail;
-      }
-      if (hasNric) {
-        cleanPatientData.nric = normalizedNric;
-      }
-
-      const patient = new Patient(cleanPatientData);
-      const savedPatient = await patient.save();
-
-      return savedPatient.toJSON();
-    } catch (error) {
-      console.error('Error in PatientService.createPatient:', error);
-      throw error;
     }
+
+    if (normalizedEmail) cleanData.email = normalizedEmail;
+    if (hasNric) cleanData.nric = normalizedNric;
+
+    const patient = new Patient(cleanData);
+    const saved = await patient.save();
+    return saved.toJSON();
   }
 
   // Update patient
   async updatePatient(id: string, updateData: Partial<PatientFormData>) {
-    try {
-      // Validate ID before querying to prevent Mongoose CastError
-      if (!id || id === 'undefined' || id === 'null') {
-        throw new Error('Patient not found');
-      }
-      // First, get the current patient to compare values
-      const currentPatient = await Patient.findById(id).lean() as PatientType | null;
-      if (!currentPatient) {
-        throw new Error('Patient not found');
-      }
-
-      // Normalize email and NRIC for comparison
-      const normalizedEmail = updateData.email?.trim().toLowerCase();
-      const normalizedNric = updateData.nric?.trim().toUpperCase();
-      const currentNric = currentPatient.nric?.trim().toUpperCase();
-
-      // Treat empty strings as "no value"
-      const hasEmail = normalizedEmail && normalizedEmail.length > 0;
-      const hasNric = normalizedNric && normalizedNric.length > 0;
-
-      // Only check for NRIC duplicates if the value is CHANGING to a new value
-      const nricIsChanging = hasNric && normalizedNric !== currentNric;
-
-      // Check if trying to update NRIC to existing value (owned by another patient)
-      if (nricIsChanging) {
-        const existingPatient = await Patient.findOne({
-          _id: { $ne: id },
-          nric: normalizedNric
-        });
-
-        if (existingPatient) {
-          throw new Error('Patient with this NRIC already exists');
-        }
-      }
-
-      // Normalize the data being saved for consistency
-      if (hasEmail && updateData.email) {
-        updateData.email = normalizedEmail;
-      }
-      if (hasNric && updateData.nric) {
-        updateData.nric = normalizedNric;
-      }
-
-      const patient = await Patient.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true, runValidators: true }
-      ).lean();
-
-      if (!patient) {
-        throw new Error('Patient not found');
-      }
-
-      return patient;
-    } catch (error) {
-      console.error('Error in PatientService.updatePatient:', error);
-      throw error;
+    if (!isValidObjectId(id)) {
+      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
     }
+
+    // Whitelist allowed fields
+    const cleanData = pickAllowedFields(updateData as unknown as Record<string, unknown>);
+
+    const currentPatient = await Patient.findById(id).lean() as PatientType | null;
+    if (!currentPatient) {
+      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
+    }
+
+    // Normalize email and NRIC
+    const normalizedEmail = (cleanData.email as string)?.trim().toLowerCase();
+    const normalizedNric = (cleanData.nric as string)?.trim().toUpperCase();
+    const currentNric = currentPatient.nric?.trim().toUpperCase();
+    const hasNric = normalizedNric && normalizedNric.length > 0;
+    const nricIsChanging = hasNric && normalizedNric !== currentNric;
+
+    if (nricIsChanging) {
+      const existing = await Patient.findOne({ _id: { $ne: id }, nric: normalizedNric });
+      if (existing) {
+        throw new Error('Patient with this NRIC already exists');
+      }
+    }
+
+    if (normalizedEmail && cleanData.email) cleanData.email = normalizedEmail;
+    if (hasNric && cleanData.nric) cleanData.nric = normalizedNric;
+
+    // Convert nested objects to dot notation so partial updates don't replace entire subdocuments
+    const flattenedUpdate = toDotNotation(cleanData, [
+      'memberBenefits', 'marketingPreferences', 'financialSummary', 'enrichmentInfo'
+    ]);
+
+    const patient = await Patient.findByIdAndUpdate(
+      id,
+      { $set: flattenedUpdate },
+      { new: true, runValidators: false }
+    ).lean();
+
+    if (!patient) {
+      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
+    }
+
+    return patient;
   }
 
-  // Delete patient
+  // Delete patient (soft-delete by setting status to 'inactive', preserving transaction references)
   async deletePatient(id: string) {
-    try {
-      // Validate ID before querying to prevent Mongoose CastError
-      if (!id || id === 'undefined' || id === 'null') {
-        throw new Error('Patient not found');
-      }
-      const patient = await Patient.findByIdAndDelete(id);
-      
-      if (!patient) {
-        throw new Error('Patient not found');
-      }
-      
-      return { message: 'Patient deleted successfully' };
-    } catch (error) {
-      console.error('Error in PatientService.deletePatient:', error);
-      throw error;
+    if (!isValidObjectId(id)) {
+      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
     }
+
+    const patient = await Patient.findById(id);
+    if (!patient) {
+      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
+    }
+
+    // Soft delete — set inactive instead of removing, so transactions aren't orphaned
+    patient.status = 'inactive';
+    await patient.save();
+
+    return { message: 'Patient deactivated successfully' };
+  }
+
+  // Permanently delete patient (for bulk operations or explicit permanent removal)
+  async permanentlyDeletePatient(id: string) {
+    if (!isValidObjectId(id)) {
+      throw Object.assign(new Error('Invalid patient ID'), { statusCode: 400 });
+    }
+
+    const patient = await Patient.findByIdAndDelete(id);
+    if (!patient) {
+      throw Object.assign(new Error('Patient not found'), { statusCode: 404 });
+    }
+    return { message: 'Patient deleted permanently' };
   }
 
   // Get recent patients
   async getRecentPatients(limit: number = 10) {
-    try {
-      const patients = await Patient.find()
-        .sort({ updatedAt: -1 })
-        .limit(limit)
-        .lean();
-      
-      return patients;
-    } catch (error) {
-      console.error('Error in PatientService.getRecentPatients:', error);
-      throw new Error('Failed to fetch recent patients');
-    }
+    return Patient.find()
+      .sort({ updatedAt: -1 })
+      .limit(limit)
+      .lean();
   }
 
   // Bulk delete patients
   async bulkDeletePatients(patientIds: string[]) {
-    try {
-      if (!Array.isArray(patientIds) || patientIds.length === 0) {
-        throw new Error('Patient IDs array is required');
-      }
-      
-      const result = await Patient.deleteMany({
-        _id: { $in: patientIds }
-      });
-      
-      return {
-        message: `${result.deletedCount} patients deleted successfully`,
-        deletedCount: result.deletedCount
-      };
-    } catch (error) {
-      console.error('Error in PatientService.bulkDeletePatients:', error);
-      throw error;
+    if (!Array.isArray(patientIds) || patientIds.length === 0) {
+      throw new Error('Patient IDs array is required');
     }
-  }
 
-  // Search patients
-  async searchPatients(searchTerm: string, limit: number = 50) {
-    try {
-      if (searchTerm.length < 2) {
-        return [];
-      }
-
-      const searchRegex = new RegExp(searchTerm.trim(), 'i');
-      const patients = await Patient.find({
-        $or: [
-          { firstName: searchRegex },
-          { lastName: searchRegex },
-          { email: searchRegex },
-          { phone: searchRegex },
-          { nric: searchRegex },
-          { legacyCustomerNo: searchRegex }
-        ]
-      })
-      .sort({ updatedAt: -1 })
-      .limit(limit)
-      .lean();
-
-      return patients;
-    } catch (error) {
-      console.error('Error in PatientService.searchPatients:', error);
-      throw new Error('Failed to search patients');
+    // Validate all IDs
+    const invalidIds = patientIds.filter(id => !isValidObjectId(id));
+    if (invalidIds.length > 0) {
+      throw Object.assign(
+        new Error(`Invalid patient ID(s): ${invalidIds.join(', ')}`),
+        { statusCode: 400 }
+      );
     }
+
+    // Soft delete — set inactive instead of hard delete
+    const result = await Patient.updateMany(
+      { _id: { $in: patientIds } },
+      { $set: { status: 'inactive' } }
+    );
+
+    return {
+      message: `${result.modifiedCount} patients deactivated successfully`,
+      deletedCount: result.modifiedCount
+    };
   }
 
   // Get patient statistics
   async getPatientStats() {
-    try {
-      const totalPatients = await Patient.countDocuments();
-      const activePatients = await Patient.countDocuments({ status: 'active' });
-      const inactivePatients = await Patient.countDocuments({ status: 'inactive' });
-      const withConsent = await Patient.countDocuments({ hasConsent: true });
-      
-      // Get recent registrations (last 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const recentRegistrations = await Patient.countDocuments({
-        createdAt: { $gte: thirtyDaysAgo }
-      });
+    const [totalPatients, activePatients, inactivePatients, withConsent, recentRegistrations] =
+      await Promise.all([
+        Patient.countDocuments(),
+        Patient.countDocuments({ status: 'active' }),
+        Patient.countDocuments({ status: 'inactive' }),
+        Patient.countDocuments({ hasConsent: true }),
+        Patient.countDocuments({
+          createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        })
+      ]);
 
-      return {
-        totalPatients,
-        activePatients,
-        inactivePatients,
-        withConsent,
-        recentRegistrations
-      };
-    } catch (error) {
-      console.error('Error in PatientService.getPatientStats:', error);
-      throw new Error('Failed to fetch patient statistics');
-    }
+    return { totalPatients, activePatients, inactivePatients, withConsent, recentRegistrations };
   }
 }
